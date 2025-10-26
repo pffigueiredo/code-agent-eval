@@ -321,6 +321,7 @@ async function runSingleIteration(
           environmentVariables: envVars,
         });
         scores[scorer.name] = result;
+        console.log(`  ${scorer.name}: ${result.score.toFixed(2)} - ${result.reason}`);
       }
 
       const duration = Date.now() - startTime;
