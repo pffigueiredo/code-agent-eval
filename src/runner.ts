@@ -4,7 +4,8 @@ import fs from 'fs-extra';
 import os from 'os';
 import path from 'path';
 import { randomUUID } from 'crypto';
-import type { EvalResult, Scorer, ScorerResult, TokenUsage } from './types';
+import type { EvalResult, Scorer, ScorerResult, TokenUsage, EnvGeneratorContext, IterationResult, AggregateScore } from './types';
+import { generateEnvironmentVariables, validateEnvironmentVariables } from './env-generator';
 
 export interface EvalConfig {
   name: string;
@@ -15,6 +16,9 @@ export interface EvalConfig {
   claudeCodeOptions?: Options;
   verbose?: boolean; // Default: false. Show detailed SDK message logs when true
   keepTempDir?: boolean; // Default: false. Keep temp directory after eval for inspection
+  environmentVariables?:
+    | Record<string, string>
+    | ((context: import('./types').EnvGeneratorContext) => Record<string, string> | Promise<Record<string, string>>);
 }
 
 /**
@@ -211,24 +215,33 @@ function formatMessage(
   return null;
 }
 
-export async function runClaudeCodeEval(
-  config: EvalConfig
-): Promise<EvalResult> {
+/**
+ * Runs a single evaluation iteration
+ */
+async function runSingleIteration(
+  config: EvalConfig,
+  context: EnvGeneratorContext
+): Promise<IterationResult> {
   const startTime = Date.now();
   const evalId = randomUUID();
   const tempDir = path.join(os.tmpdir(), `eval-${evalId}`);
 
+  // Generate environment variables for this iteration
+  const envVars = await generateEnvironmentVariables(config, context);
+  validateEnvironmentVariables(envVars);
+
+  if (config.verbose) {
+    console.log(`\n[Iteration ${context.iteration}] Environment variables:`, envVars);
+  }
+
   try {
-    // 1. Copy project to temp directory (preserving git history)
-    console.log(`Copying ${config.projectDir} to ${tempDir}...`);
+    // 1. Copy project to temp directory
+    console.log(`[Iteration ${context.iteration}] Copying ${config.projectDir} to ${tempDir}...`);
     await fs.copy(config.projectDir, tempDir, {
-      filter: (src) => {
-        // Skip node_modules but keep everything else including .git
-        return !src.includes('node_modules');
-      },
+      filter: (src) => !src.includes('node_modules'),
     });
 
-    // 2. Initialize git in temp dir if not already a repo
+    // 2. Initialize git if needed
     const isGitRepo = await fs.pathExists(path.join(tempDir, '.git'));
     if (!isGitRepo) {
       await execa('git', ['init'], { cwd: tempDir });
@@ -236,128 +249,249 @@ export async function runClaudeCodeEval(
       await execa('git', ['commit', '-m', 'Initial commit'], { cwd: tempDir });
     }
 
-    // 3. Run Claude Code Agent SDK with user's prompt
-    console.log(`Running prompt: "${config.prompt}" in ${tempDir}...`);
-    const result = query({
-      prompt: config.prompt,
-      options: {
-        cwd: tempDir,
-        settingSources: ['project'],
-        permissionMode: 'bypassPermissions', // Auto-approve all operations for unattended eval runs
-        ...config.claudeCodeOptions, // User can override if needed
-      },
-    });
+    // 3. Create .env file with environment variables (for Claude Code Agent to use)
+    if (Object.keys(envVars).length > 0) {
+      const envFileContent = Object.entries(envVars)
+        .map(([key, value]) => `${key}=${value}`)
+        .join('\n');
+      await fs.writeFile(path.join(tempDir, '.env'), envFileContent, 'utf-8');
+    }
 
-    // Collect all output from the async generator
-    const allMessages: any[] = [];
-    const pendingToolUses = new Map<string, { name: string; input: any }>();
-    let tokenUsage: TokenUsage | undefined;
+    // 4. Run Claude Code Agent SDK with user's prompt
+    // Note: query() doesn't have env option, so we set process.env temporarily
+    const originalEnv = { ...process.env };
+    Object.assign(process.env, envVars);
 
-    for await (const message of result) {
-      allMessages.push(message);
+    try {
+      console.log(`[Iteration ${context.iteration}] Running prompt: "${config.prompt}" in ${tempDir}...`);
+      const result = query({
+        prompt: config.prompt,
+        options: {
+          cwd: tempDir,
+          settingSources: ['project'],
+          permissionMode: 'bypassPermissions',
+          ...config.claudeCodeOptions,
+        },
+      });
 
-      // Extract token usage from result message
-      if (message.type === 'result' && message.usage) {
-        tokenUsage = {
-          inputTokens: message.usage.input_tokens || 0,
-          outputTokens: message.usage.output_tokens || 0,
-          cacheCreationInputTokens: message.usage.cache_creation_input_tokens,
-          cacheReadInputTokens: message.usage.cache_read_input_tokens,
-        };
-      }
+      // Collect all output from the async generator
+      const allMessages: any[] = [];
+      const pendingToolUses = new Map<string, { name: string; input: any }>();
+      let tokenUsage: TokenUsage | undefined;
 
-      // Log messages based on verbose setting
-      if (config.verbose) {
-        // Verbose mode: show full JSON dump
-        console.log('\n[Claude Code]', message.type, ':', JSON.stringify(message, null, 2));
-      } else {
-        // Clean mode: show user-friendly output with tool details
-        const formatted = formatMessage(message, pendingToolUses);
-        if (formatted) {
-          console.log(formatted);
+      for await (const message of result) {
+        allMessages.push(message);
+
+        // Extract token usage from result message
+        if (message.type === 'result' && message.usage) {
+          tokenUsage = {
+            inputTokens: message.usage.input_tokens || 0,
+            outputTokens: message.usage.output_tokens || 0,
+            cacheCreationInputTokens: message.usage.cache_creation_input_tokens,
+            cacheReadInputTokens: message.usage.cache_read_input_tokens,
+          };
+        }
+
+        // Log messages based on verbose setting
+        if (config.verbose) {
+          console.log('\n[Claude Code]', message.type, ':', JSON.stringify(message, null, 2));
+        } else {
+          const formatted = formatMessage(message, pendingToolUses);
+          if (formatted) {
+            console.log(formatted);
+          }
         }
       }
-    }
-    const agentOutput = JSON.stringify(allMessages);
+      const agentOutput = JSON.stringify(allMessages);
 
-    // 5. Capture git diff
-    console.log('Capturing changes...');
-    const { stdout: diff } = await execa('git', ['diff', 'HEAD'], {
-      cwd: tempDir,
-    });
-
-    // 6. Run scorers
-    console.log('Running scorers...');
-    const scores: Record<string, ScorerResult> = {};
-    for (const scorer of config.scorers || []) {
-      const result = await scorer.fn({
-        workingDir: tempDir,
-        diff,
-        agentOutput: JSON.stringify(agentOutput),
+      // 5. Capture git diff
+      console.log(`[Iteration ${context.iteration}] Capturing changes...`);
+      const { stdout: diff } = await execa('git', ['diff', 'HEAD'], {
+        cwd: tempDir,
       });
-      scores[scorer.name] = result;
-    }
 
-    const duration = Date.now() - startTime;
-    const success = Object.values(scores).every((s) => s.score === 1.0);
-
-    // Print comprehensive summary
-    console.log('\n' + '='.repeat(60));
-    console.log('EVALUATION SUMMARY');
-    console.log('='.repeat(60));
-    console.log(`Eval Name: ${config.name}`);
-    console.log(`Duration: ${(duration / 1000).toFixed(2)}s`);
-    console.log(`Status: ${success ? '✓ PASSED' : '✗ FAILED'}`);
-
-    // Display scores
-    if (Object.keys(scores).length > 0) {
-      console.log('\nScores:');
-      for (const [name, result] of Object.entries(scores)) {
-        const status = result.score === 1.0 ? '✓' : '✗';
-        console.log(`  ${status} ${name}: ${result.score.toFixed(2)} - ${result.reason}`);
+      // 6. Run scorers with environment variables in context
+      console.log(`[Iteration ${context.iteration}] Running scorers...`);
+      const scores: Record<string, ScorerResult> = {};
+      for (const scorer of config.scorers || []) {
+        const result = await scorer.fn({
+          workingDir: tempDir,
+          diff,
+          agentOutput,
+          environmentVariables: envVars,
+        });
+        scores[scorer.name] = result;
       }
+
+      const duration = Date.now() - startTime;
+      const success = Object.values(scores).every((s) => s.score === 1.0);
+
+      return {
+        iterationId: context.iteration,
+        success,
+        duration,
+        scores,
+        diff,
+        tokenUsage,
+        workingDir: config.keepTempDir ? tempDir : undefined,
+        environmentVariables: envVars,
+      };
+    } finally {
+      // Restore original environment
+      process.env = originalEnv;
     }
-
-    // Display token usage
-    if (tokenUsage) {
-      const totalInputTokens = tokenUsage.inputTokens +
-        (tokenUsage.cacheCreationInputTokens || 0) +
-        (tokenUsage.cacheReadInputTokens || 0);
-      console.log('\nToken Usage:');
-      console.log(`  Input tokens: ${totalInputTokens.toLocaleString()}`);
-      console.log(`  Output tokens: ${tokenUsage.outputTokens.toLocaleString()}`);
-      console.log(`  Total: ${(totalInputTokens + tokenUsage.outputTokens).toLocaleString()} tokens`);
-    }
-
-    console.log('='.repeat(60) + '\n');
-
-    return {
-      evalName: config.name,
-      timestamp: new Date().toISOString(),
-      success,
-      duration,
-      scores,
-      diff,
-      tokenUsage,
-      workingDir: config.keepTempDir ? tempDir : undefined,
-    };
   } catch (error) {
     return {
-      evalName: config.name,
-      timestamp: new Date().toISOString(),
+      iterationId: context.iteration,
       success: false,
       duration: Date.now() - startTime,
       scores: {},
       diff: '',
       error: error instanceof Error ? error.message : String(error),
+      environmentVariables: envVars,
     };
   } finally {
     // 7. Cleanup (unless keepTempDir option is set)
     if (!config.keepTempDir) {
-      console.log('Cleaning up temp directory...');
+      console.log(`[Iteration ${context.iteration}] Cleaning up temp directory...`);
       await fs.remove(tempDir);
     } else {
-      console.log(`Temp directory preserved at ${tempDir}`);
+      console.log(`[Iteration ${context.iteration}] Temp directory preserved at ${tempDir}`);
     }
   }
+}
+
+/**
+ * Calculate aggregate statistics across iterations
+ */
+function calculateAggregateScores(
+  results: IterationResult[]
+): Record<string, AggregateScore> {
+  const aggregates: Record<string, AggregateScore> = {};
+
+  // Get all scorer names
+  const scorerNames = new Set<string>();
+  for (const result of results) {
+    for (const name of Object.keys(result.scores)) {
+      scorerNames.add(name);
+    }
+  }
+
+  // Calculate aggregates for each scorer
+  for (const scorerName of scorerNames) {
+    const scores = results
+      .map(r => r.scores[scorerName]?.score)
+      .filter((s): s is number => s !== undefined);
+
+    if (scores.length === 0) continue;
+
+    const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+    const min = Math.min(...scores);
+    const max = Math.max(...scores);
+    const variance = scores.reduce((acc, score) => acc + Math.pow(score - mean, 2), 0) / scores.length;
+    const stdDev = Math.sqrt(variance);
+    const passRate = scores.filter(s => s >= 1.0).length / scores.length;
+
+    aggregates[scorerName] = { mean, min, max, stdDev, passRate };
+  }
+
+  // Overall pass rate (all scorers passed)
+  const overallPassRate = results.filter(r => r.success).length / results.length;
+  aggregates._overall = {
+    mean: overallPassRate,
+    min: overallPassRate,
+    max: overallPassRate,
+    stdDev: 0,
+    passRate: overallPassRate,
+  };
+
+  return aggregates;
+}
+
+/**
+ * Main entry point: Runs evaluation with multiple iterations
+ */
+export async function runClaudeCodeEval(
+  config: EvalConfig,
+  iterations: number = 1
+): Promise<EvalResult> {
+  const startTime = Date.now();
+  const results: IterationResult[] = [];
+
+  console.log(`\nStarting evaluation "${config.name}" with ${iterations} iteration(s)...\n`);
+
+  // Run iterations sequentially
+  for (let i = 0; i < iterations; i++) {
+    const context: EnvGeneratorContext = {
+      iteration: i,
+      evalName: config.name,
+      totalIterations: iterations,
+    };
+
+    const result = await runSingleIteration(config, context);
+    results.push(result);
+
+    // Print iteration summary
+    console.log(`\n[Iteration ${i}] ${result.success ? '✓ PASSED' : '✗ FAILED'} in ${(result.duration / 1000).toFixed(2)}s`);
+  }
+
+  // Calculate aggregate scores
+  const aggregateScores = calculateAggregateScores(results);
+
+  // Print comprehensive summary
+  const duration = Date.now() - startTime;
+  const overallSuccess = results.every(r => r.success);
+
+  console.log('\n' + '='.repeat(60));
+  console.log('EVALUATION SUMMARY');
+  console.log('='.repeat(60));
+  console.log(`Eval Name: ${config.name}`);
+  console.log(`Total Duration: ${(duration / 1000).toFixed(2)}s`);
+  console.log(`Iterations: ${results.length}`);
+  console.log(`Pass Rate: ${(aggregateScores._overall.passRate * 100).toFixed(1)}%`);
+  console.log(`Status: ${overallSuccess ? '✓ ALL PASSED' : '✗ SOME FAILED'}`);
+
+  // Display aggregate scores
+  if (Object.keys(aggregateScores).length > 1) {
+    console.log('\nAggregate Scores:');
+    for (const [name, agg] of Object.entries(aggregateScores)) {
+      if (name === '_overall') continue;
+      console.log(`  ${name}:`);
+      console.log(`    Mean: ${agg.mean.toFixed(2)} | Min: ${agg.min.toFixed(2)} | Max: ${agg.max.toFixed(2)} | StdDev: ${agg.stdDev.toFixed(2)}`);
+      console.log(`    Pass Rate: ${(agg.passRate * 100).toFixed(1)}%`);
+    }
+  }
+
+  // Display total token usage
+  const totalTokenUsage = results.reduce((acc, r) => {
+    if (r.tokenUsage) {
+      acc.inputTokens += r.tokenUsage.inputTokens;
+      acc.outputTokens += r.tokenUsage.outputTokens;
+      acc.cacheCreationInputTokens += r.tokenUsage.cacheCreationInputTokens || 0;
+      acc.cacheReadInputTokens += r.tokenUsage.cacheReadInputTokens || 0;
+    }
+    return acc;
+  }, { inputTokens: 0, outputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 });
+
+  if (totalTokenUsage.inputTokens > 0) {
+    const totalInput = totalTokenUsage.inputTokens +
+      totalTokenUsage.cacheCreationInputTokens +
+      totalTokenUsage.cacheReadInputTokens;
+    console.log('\nTotal Token Usage:');
+    console.log(`  Input tokens: ${totalInput.toLocaleString()}`);
+    console.log(`  Output tokens: ${totalTokenUsage.outputTokens.toLocaleString()}`);
+    console.log(`  Total: ${(totalInput + totalTokenUsage.outputTokens).toLocaleString()} tokens`);
+  }
+
+  console.log('='.repeat(60) + '\n');
+
+  return {
+    evalName: config.name,
+    timestamp: new Date().toISOString(),
+    success: overallSuccess,
+    duration,
+    iterations: results,
+    aggregateScores,
+    tokenUsage: totalTokenUsage.inputTokens > 0 ? totalTokenUsage : undefined,
+  };
 }
