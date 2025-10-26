@@ -1,17 +1,24 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { generateEnvironmentVariables, validateEnvironmentVariables } from '../src/env-generator';
-import type { EvalConfig, EnvGeneratorContext } from '../src/types';
+import { describe, it, expect, vi } from 'vitest';
+import {
+  generateEnvironmentVariables,
+  validateEnvironmentVariables,
+} from '../src/env-generator';
+import type { EnvGeneratorContext } from '../src/types';
+import type { EvalConfig } from '../src/runner';
 
 describe('Environment Variable Generation', () => {
   const mockContext: EnvGeneratorContext = {
     iteration: 0,
     evalName: 'test-eval',
-    totalIterations: 3
+    totalIterations: 3,
   };
 
   it('should return empty object when no env vars configured', async () => {
     const config: Partial<EvalConfig> = {};
-    const result = await generateEnvironmentVariables(config as EvalConfig, mockContext);
+    const result = await generateEnvironmentVariables(
+      config as EvalConfig,
+      mockContext
+    );
     expect(result).toEqual({});
   });
 
@@ -19,13 +26,16 @@ describe('Environment Variable Generation', () => {
     const config: Partial<EvalConfig> = {
       environmentVariables: {
         NODE_ENV: 'test',
-        API_KEY: 'test-key'
-      }
+        API_KEY: 'test-key',
+      },
     };
-    const result = await generateEnvironmentVariables(config as EvalConfig, mockContext);
+    const result = await generateEnvironmentVariables(
+      config as EvalConfig,
+      mockContext
+    );
     expect(result).toEqual({
       NODE_ENV: 'test',
-      API_KEY: 'test-key'
+      API_KEY: 'test-key',
     });
   });
 
@@ -33,36 +43,50 @@ describe('Environment Variable Generation', () => {
     const config: Partial<EvalConfig> = {
       environmentVariables: (ctx) => ({
         ITERATION: String(ctx.iteration),
-        DB_NAME: `test_${ctx.iteration}`
-      })
+        DB_NAME: `test_${ctx.iteration}`,
+      }),
     };
-    const result = await generateEnvironmentVariables(config as EvalConfig, mockContext);
+    const result = await generateEnvironmentVariables(
+      config as EvalConfig,
+      mockContext
+    );
     expect(result).toEqual({
       ITERATION: '0',
-      DB_NAME: 'test_0'
+      DB_NAME: 'test_0',
     });
   });
 
   it('should support async generators', async () => {
     const config: Partial<EvalConfig> = {
       environmentVariables: async (ctx) => {
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise((resolve) => setTimeout(resolve, 10));
         return {
-          ASYNC_VALUE: `async-${ctx.iteration}`
+          ASYNC_VALUE: `async-${ctx.iteration}`,
         };
-      }
+      },
     };
-    const result = await generateEnvironmentVariables(config as EvalConfig, mockContext);
+    const result = await generateEnvironmentVariables(
+      config as EvalConfig,
+      mockContext
+    );
     expect(result).toEqual({
-      ASYNC_VALUE: 'async-0'
+      ASYNC_VALUE: 'async-0',
     });
   });
 
   it('should validate env var names', () => {
-    expect(() => validateEnvironmentVariables({ VALID_NAME: 'value' })).not.toThrow();
-    expect(() => validateEnvironmentVariables({ _UNDERSCORE: 'value' })).not.toThrow();
-    expect(() => validateEnvironmentVariables({ 'INVALID-NAME': 'value' })).toThrow();
-    expect(() => validateEnvironmentVariables({ '123START': 'value' })).toThrow();
+    expect(() =>
+      validateEnvironmentVariables({ VALID_NAME: 'value' })
+    ).not.toThrow();
+    expect(() =>
+      validateEnvironmentVariables({ _UNDERSCORE: 'value' })
+    ).not.toThrow();
+    expect(() =>
+      validateEnvironmentVariables({ 'INVALID-NAME': 'value' })
+    ).toThrow();
+    expect(() =>
+      validateEnvironmentVariables({ '123START': 'value' })
+    ).toThrow();
   });
 
   it('should warn about critical system vars', () => {
@@ -79,16 +103,30 @@ describe('Environment Variable Generation', () => {
       environmentVariables: (ctx) => ({
         ITER: String(ctx.iteration),
         EVAL_NAME: ctx.evalName,
-        TOTAL: String(ctx.totalIterations || 0)
-      })
+        TOTAL: String(ctx.totalIterations || 0),
+      }),
     };
 
-    const ctx1: EnvGeneratorContext = { iteration: 0, evalName: 'test', totalIterations: 5 };
-    const result1 = await generateEnvironmentVariables(config as EvalConfig, ctx1);
+    const ctx1: EnvGeneratorContext = {
+      iteration: 0,
+      evalName: 'test',
+      totalIterations: 5,
+    };
+    const result1 = await generateEnvironmentVariables(
+      config as EvalConfig,
+      ctx1
+    );
     expect(result1.ITER).toBe('0');
 
-    const ctx2: EnvGeneratorContext = { iteration: 4, evalName: 'test', totalIterations: 5 };
-    const result2 = await generateEnvironmentVariables(config as EvalConfig, ctx2);
+    const ctx2: EnvGeneratorContext = {
+      iteration: 4,
+      evalName: 'test',
+      totalIterations: 5,
+    };
+    const result2 = await generateEnvironmentVariables(
+      config as EvalConfig,
+      ctx2
+    );
     expect(result2.ITER).toBe('4');
   });
 

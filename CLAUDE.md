@@ -33,6 +33,9 @@ npm run typecheck
 # Run Phase 1 example (single evaluation)
 npx tsx examples/phase1-single-run.ts
 
+# Run Phase 2 example (multi-iteration with env vars)
+npx tsx examples/phase2-multi-iteration.ts
+
 # To preserve temp directories for inspection, set keepTempDir: true in the config
 ```
 
@@ -48,21 +51,32 @@ npx tsx examples/phase1-single-run.ts
 ### Key Components
 
 **Core Runner** (`src/runner.ts`):
-- `runClaudeCodeEval()`: Main entry point that orchestrates the entire eval flow
-- Manages temp directory lifecycle (copy, setup git, cleanup)
-- Integrates with Claude Code Agent SDK using the `query()` function from `@anthropic-ai/claude-agent-sdk`
-- Collects output from the async generator pattern returned by `query()`
-- Executes scorers and aggregates results
+- `runClaudeCodeEval(config, iterations)`: Main entry point that orchestrates the entire eval flow
+  - Supports running 1 to N iterations (default: 1)
+  - Each iteration runs in its own isolated temp directory
+  - Aggregates results across all iterations with statistics
+- `runSingleIteration()`: Internal function that handles one iteration
+  - Manages temp directory lifecycle (copy, setup git, cleanup)
+  - Integrates with Claude Code Agent SDK using the `query()` function from `@anthropic-ai/claude-agent-sdk`
+  - Collects output from the async generator pattern returned by `query()`
+  - Executes scorers for that iteration
+  - Tracks token usage from Claude API
+- `calculateAggregateScores()`: Computes statistics (mean, min, max, stdDev, passRate) across iterations
 - **Logging**: By default, shows user-friendly output (tool uses, completions). Set `verbose: true` in `EvalConfig` to see full SDK message JSON dumps
 
 **Type System** (`src/types.ts`):
 - `EvalConfig`: Configuration for running evaluations (name, prompt, projectDir, timeout, scorers, verbose, keepTempDir)
   - `verbose?: boolean`: Optional flag to enable detailed SDK logging (default: false)
   - `keepTempDir?: boolean`: Optional flag to preserve temp directory after eval (default: false)
-- `EvalResult`: Results from a single evaluation run (success, duration, scores, diff, workingDir)
+  - `environmentVariables?: Record<string, string> | (context) => Record<string, string> | Promise<...>`: Optional env vars (static or dynamic)
+- `EvalResult`: Results from all iterations (evalName, timestamp, iterations, aggregateScores, tokenUsage)
+- `IterationResult`: Results from a single iteration (iterationId, success, duration, scores, diff, environmentVariables, tokenUsage)
+- `AggregateScore`: Statistics for a scorer across iterations (mean, min, max, stdDev, passRate)
+- `EnvGeneratorContext`: Context for dynamic env var generation (iteration, evalName, totalIterations)
 - `Scorer`: Interface for implementing evaluation scorers (name + async function)
 - `ScorerContext`: Context provided to scorers (workingDir, diff, agentOutput)
 - `ScorerResult`: Output from scorers (score 0.0-1.0, reason, optional metadata)
+- `TokenUsage`: Claude API token usage tracking (input, output, total)
 
 **Scorers** (`src/scorers/`):
 - `code.ts`: Deterministic scorers that run npm scripts
@@ -71,8 +85,19 @@ npx tsx examples/phase1-single-run.ts
   - `lintSuccess()`: Runs `npm run lint` and scores 1.0 if passes
 - All code scorers use 5-minute timeouts for build/test, 1-minute for lint
 
+**Environment Variable Generator** (`src/env-generator.ts`):
+- `generateEnvironmentVariables()`: Generates env vars for each iteration
+  - Supports static objects (same vars for all iterations)
+  - Supports dynamic functions (different vars per iteration)
+  - Supports async generators (e.g., fetching API keys)
+- `validateEnvironmentVariables()`: Validates env var names and values
+  - Ensures valid variable names (alphanumeric + underscore)
+  - Warns when overriding system variables
+  - Validates all values are strings
+
 **Public API** (`src/index.ts`):
 - Exports all types, runner function, and built-in scorers
+- Exports environment variable utilities (`generateEnvironmentVariables`, `validateEnvironmentVariables`)
 - Scorers are grouped under `scorers` namespace
 
 ### Claude Code Agent SDK Integration
@@ -128,10 +153,14 @@ for await (const message of result) {
 - ✅ Basic example script
 - ✅ Temp directory isolation and cleanup
 
-**Phase 2 (PENDING)**: Iterations + scoring system
-- Multiple iterations with aggregated results
-- Pass rate calculation
-- JSON export to files
+**Phase 2 (COMPLETE)**: Iterations + scoring system
+- ✅ Multiple iterations with aggregated results
+- ✅ Pass rate calculation and statistics (mean, min, max, stdDev)
+- ✅ Environment variable injection (static and dynamic)
+- ✅ Per-iteration and aggregate scoring
+- ✅ Token usage tracking
+- ✅ Working example with multi-iteration support
+- ⏳ JSON export to files (deferred to Phase 5)
 
 **Phase 3 (PENDING)**: Comparison mode
 - A/B testing multiple prompts
@@ -143,10 +172,14 @@ for await (const message of result) {
 
 ## Testing Approach
 
-**Unit Tests** (`tests/index.test.ts`):
-- Type exports verification
-- Scorer availability checks
-- Currently minimal - focused on API surface
+**Unit Tests**:
+- `tests/index.test.ts`: Type exports verification and scorer availability checks
+- `tests/env-vars.test.ts`: Environment variable generation and validation tests
+  - Static env vars
+  - Dynamic env var functions
+  - Async generators
+  - Validation rules
+  - Context handling across iterations
 
 **Integration Testing** (Manual):
 - Run example scripts to verify end-to-end functionality

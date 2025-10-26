@@ -1,18 +1,30 @@
 {
-  "name": "tsdown-starter",
-  "version": "0.0.0",
-  "description": "A starter for creating a TypeScript package.",
+  "name": "cc-eval",
+  "version": "0.1.0",
+  "description": "TypeScript library for evaluating Claude Code prompts against real codebases with multi-iteration testing and scoring",
   "type": "module",
   "license": "MIT",
-  "homepage": "https://github.com/author/library#readme",
+  "homepage": "https://github.com/pffigueiredo/cc-eval#readme",
   "bugs": {
-    "url": "https://github.com/author/library/issues"
+    "url": "https://github.com/pffigueiredo/cc-eval/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/author/library.git"
+    "url": "git+https://github.com/pffigueiredo/cc-eval.git"
   },
-  "author": "Author Name <author.name@mail.com>",
+  "author": "Pedro Figueiredo",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "evaluation",
+    "testing",
+    "ai",
+    "prompts",
+    "agent-sdk",
+    "eval",
+    "llm",
+    "typescript"
+  ],
   "files": [
     "dist"
   ],
