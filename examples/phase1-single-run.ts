@@ -9,6 +9,8 @@ async function main() {
       'Based on https://registry.npmjs.org/@neondatabase/neon-js migrate from SupabaseJS to NeonJS.',
     projectDir:
       '/Users/pedro.figueiredo/Documents/git/personal/todo-guardian-pro-supabasejs', // Use this project as template
+    iterations: 1,
+    // execution defaults to sequential
     scorers: [scorers.buildSuccess()],
     keepTempDir: true, // Uncomment to preserve temp directory for inspection
     environmentVariables: {

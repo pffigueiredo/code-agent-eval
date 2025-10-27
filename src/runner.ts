@@ -4,18 +4,28 @@ import fs from 'fs-extra';
 import os from 'os';
 import path from 'path';
 import { randomUUID } from 'crypto';
-import type { EvalResult, Scorer, ScorerResult, TokenUsage, EnvGeneratorContext, IterationResult, AggregateScore } from './types';
+import type { EvalResult, Scorer, ScorerResult, TokenUsage, EnvGeneratorContext, IterationResult, AggregateScore, ExecutionConfig } from './types';
 import { generateEnvironmentVariables, validateEnvironmentVariables } from './env-generator';
+import { writeResults } from './results-writer';
 
 export interface EvalConfig {
   name: string;
   prompt: string;
   projectDir: string; // Path to user's codebase (original, untouched)
+
+  // NEW: Moved iterations into config
+  iterations?: number; // Default: 1
+
+  // NEW: Execution control
+  execution?: ExecutionConfig; // Default: { mode: 'sequential' }
+
+  // Existing fields
   timeout?: number; // Default: 600000ms (10 minutes)
   scorers?: Scorer[];
   claudeCodeOptions?: Options;
   verbose?: boolean; // Default: false. Show detailed SDK message logs when true
   keepTempDir?: boolean; // Default: false. Keep temp directory after eval for inspection
+  resultsDir?: string; // Optional: Directory to write markdown results file
   environmentVariables?:
     | Record<string, string>
     | ((context: import('./types').EnvGeneratorContext) => Record<string, string> | Promise<Record<string, string>>);
@@ -151,8 +161,16 @@ function formatToolResult(toolName: string, result: any): string {
  */
 function formatMessage(
   message: any,
-  pendingToolUses: Map<string, { name: string; input: any }>
+  pendingToolUses: Map<string, { name: string; input: any }>,
+  iterationId?: number
 ): string | null {
+  // Helper to prefix lines with iteration context
+  const prefix = (text: string): string => {
+    if (iterationId === undefined) return text;
+    const lines = text.split('\n');
+    return lines.map(line => `[Iteration ${iterationId}] ${line}`).join('\n');
+  };
+
   // Handle assistant messages with tool uses and text
   if (message.type === 'assistant' && message.message?.content) {
     const content = message.message.content;
@@ -172,7 +190,7 @@ function formatMessage(
           outputs.push(block.text.trim());
         }
       }
-      return outputs.length > 0 ? outputs.join('\n') : null;
+      return outputs.length > 0 ? prefix(outputs.join('\n')) : null;
     }
   }
 
@@ -193,7 +211,7 @@ function formatMessage(
           }
         }
       }
-      return outputs.length > 0 ? outputs.join('\n') : null;
+      return outputs.length > 0 ? prefix(outputs.join('\n')) : null;
     }
   }
 
@@ -203,11 +221,11 @@ function formatMessage(
       ? `${(message.duration_ms / 1000).toFixed(1)}s`
       : 'unknown';
     if (message.subtype === 'success') {
-      return `✓ Completed in ${duration}`;
+      return prefix(`✓ Completed in ${duration}`);
     } else if (message.subtype === 'error_during_execution') {
-      return `✗ Error during execution`;
+      return prefix(`✗ Error during execution`);
     } else if (message.subtype === 'error_max_turns') {
-      return `✗ Error: Max turns reached`;
+      return prefix(`✗ Error: Max turns reached`);
     }
   }
 
@@ -294,9 +312,9 @@ async function runSingleIteration(
 
         // Log messages based on verbose setting
         if (config.verbose) {
-          console.log('\n[Claude Code]', message.type, ':', JSON.stringify(message, null, 2));
+          console.log(`\n[Iteration ${context.iteration}] [Claude Code]`, message.type, ':', JSON.stringify(message, null, 2));
         } else {
-          const formatted = formatMessage(message, pendingToolUses);
+          const formatted = formatMessage(message, pendingToolUses, context.iteration);
           if (formatted) {
             console.log(formatted);
           }
@@ -321,7 +339,7 @@ async function runSingleIteration(
           environmentVariables: envVars,
         });
         scores[scorer.name] = result;
-        console.log(`  ${scorer.name}: ${result.score.toFixed(2)} - ${result.reason}`);
+        console.log(`[Iteration ${context.iteration}]   ${scorer.name}: ${result.score.toFixed(2)} - ${result.reason}`);
       }
 
       const duration = Date.now() - startTime;
@@ -410,18 +428,14 @@ function calculateAggregateScores(
 }
 
 /**
- * Main entry point: Runs evaluation with multiple iterations
+ * Run iterations sequentially (one after another)
  */
-export async function runClaudeCodeEval(
+async function runSequential(
   config: EvalConfig,
-  iterations: number = 1
-): Promise<EvalResult> {
-  const startTime = Date.now();
+  iterations: number
+): Promise<IterationResult[]> {
   const results: IterationResult[] = [];
 
-  console.log(`\nStarting evaluation "${config.name}" with ${iterations} iteration(s)...\n`);
-
-  // Run iterations sequentially
   for (let i = 0; i < iterations; i++) {
     const context: EnvGeneratorContext = {
       iteration: i,
@@ -434,6 +448,130 @@ export async function runClaudeCodeEval(
 
     // Print iteration summary
     console.log(`\n[Iteration ${i}] ${result.success ? '✓ PASSED' : '✗ FAILED'} in ${(result.duration / 1000).toFixed(2)}s`);
+  }
+
+  return results;
+}
+
+/**
+ * Run iterations in parallel (all at once)
+ * Auto-detects optimal concurrency based on system CPU count
+ */
+async function runParallel(
+  config: EvalConfig,
+  iterations: number
+): Promise<IterationResult[]> {
+  console.log(`Running ${iterations} iterations in parallel (unbounded)...`);
+
+  // Create all iteration promises
+  const promises = Array.from({ length: iterations }, (_, i) => {
+    const context: EnvGeneratorContext = {
+      iteration: i,
+      evalName: config.name,
+      totalIterations: iterations,
+    };
+
+    return runSingleIteration(config, context).then(result => {
+      // Print as each completes (may be out of order)
+      console.log(`\n[Iteration ${i}] ${result.success ? '✓ PASSED' : '✗ FAILED'} in ${(result.duration / 1000).toFixed(2)}s`);
+      return result;
+    });
+  });
+
+  // Wait for all to complete
+  const results = await Promise.all(promises);
+
+  // Sort by iteration ID to maintain consistent ordering
+  return results.sort((a, b) => a.iterationId - b.iterationId);
+}
+
+/**
+ * Run promises with concurrency limit (manual p-limit pattern)
+ */
+async function pLimit<T>(
+  tasks: (() => Promise<T>)[],
+  concurrency: number
+): Promise<T[]> {
+  const results: T[] = [];
+  const executing: Promise<void>[] = [];
+
+  for (const [index, task] of tasks.entries()) {
+    const p = task().then(result => {
+      results[index] = result;
+      executing.splice(executing.indexOf(p), 1);
+    });
+
+    executing.push(p);
+
+    if (executing.length >= concurrency) {
+      await Promise.race(executing);
+    }
+  }
+
+  await Promise.all(executing);
+  return results;
+}
+
+/**
+ * Run iterations in parallel with concurrency limit
+ */
+async function runParallelWithLimit(
+  config: EvalConfig,
+  iterations: number,
+  concurrency: number
+): Promise<IterationResult[]> {
+  console.log(`Running ${iterations} iterations in parallel (concurrency: ${concurrency})...`);
+
+  // Create task functions (not promises yet)
+  const tasks = Array.from({ length: iterations }, (_, i) => {
+    return async () => {
+      const context: EnvGeneratorContext = {
+        iteration: i,
+        evalName: config.name,
+        totalIterations: iterations,
+      };
+
+      const result = await runSingleIteration(config, context);
+      console.log(`\n[Iteration ${i}] ${result.success ? '✓ PASSED' : '✗ FAILED'} in ${(result.duration / 1000).toFixed(2)}s`);
+      return result;
+    };
+  });
+
+  // Run with concurrency limit
+  const results = await pLimit(tasks, concurrency);
+
+  return results.sort((a, b) => a.iterationId - b.iterationId);
+}
+
+/**
+ * Main entry point: Runs evaluation with multiple iterations
+ */
+export async function runClaudeCodeEval(
+  config: EvalConfig
+): Promise<EvalResult> {
+  const startTime = Date.now();
+  const iterations = config.iterations || 1;
+  const execution = config.execution || { mode: 'sequential' as const };
+
+  // Validation
+  if (execution.mode === 'parallel-limit' && !execution.concurrency) {
+    throw new Error('concurrency is required when mode is "parallel-limit"');
+  }
+
+  console.log(`\nStarting evaluation "${config.name}" with ${iterations} iteration(s) (${execution.mode})...\n`);
+
+  let results: IterationResult[];
+
+  switch (execution.mode) {
+    case 'sequential':
+      results = await runSequential(config, iterations);
+      break;
+    case 'parallel':
+      results = await runParallel(config, iterations);
+      break;
+    case 'parallel-limit':
+      results = await runParallelWithLimit(config, iterations, execution.concurrency!);
+      break;
   }
 
   // Calculate aggregate scores
@@ -484,9 +622,19 @@ export async function runClaudeCodeEval(
     console.log(`  Total: ${(totalInput + totalTokenUsage.outputTokens).toLocaleString()} tokens`);
   }
 
+  // Display preserved temp directories
+  const preservedDirs = results.filter(r => r.workingDir).map(r => r.workingDir!);
+  if (preservedDirs.length > 0) {
+    console.log('\nPreserved Temp Directories:');
+    preservedDirs.forEach((dir, index) => {
+      console.log(`  [${index + 1}] ${dir}`);
+    });
+  }
+
   console.log('='.repeat(60) + '\n');
 
-  return {
+  // Create the result object
+  const evalResult: EvalResult = {
     evalName: config.name,
     timestamp: new Date().toISOString(),
     success: overallSuccess,
@@ -495,4 +643,16 @@ export async function runClaudeCodeEval(
     aggregateScores,
     tokenUsage: totalTokenUsage.inputTokens > 0 ? totalTokenUsage : undefined,
   };
+
+  // Write results to markdown file if resultsDir is specified
+  if (config.resultsDir) {
+    try {
+      const resultPath = await writeResults(evalResult, config.resultsDir);
+      console.log(`Results written to: ${resultPath}\n`);
+    } catch (error) {
+      console.error('Failed to write results:', error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  return evalResult;
 }

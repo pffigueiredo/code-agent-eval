@@ -1,6 +1,6 @@
 {
   "name": "cc-eval",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "TypeScript library for evaluating Claude Code prompts against real codebases with multi-iteration testing and scoring",
   "type": "module",
   "license": "MIT",

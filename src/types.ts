@@ -1,3 +1,10 @@
+export type ExecutionMode = 'sequential' | 'parallel' | 'parallel-limit';
+
+export interface ExecutionConfig {
+  mode: ExecutionMode;
+  concurrency?: number; // Required when mode = 'parallel-limit'
+}
+
 export interface Scorer {
   name: string;
   fn: (context: ScorerContext) => Promise<ScorerResult>;

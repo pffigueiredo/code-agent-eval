@@ -51,10 +51,17 @@ npx tsx examples/phase2-multi-iteration.ts
 ### Key Components
 
 **Core Runner** (`src/runner.ts`):
-- `runClaudeCodeEval(config, iterations)`: Main entry point that orchestrates the entire eval flow
-  - Supports running 1 to N iterations (default: 1)
+- `runClaudeCodeEval(config)`: Main entry point that orchestrates the entire eval flow
+  - Takes single `EvalConfig` object with all parameters
+  - `iterations` field specifies how many times to run (default: 1)
+  - `execution` field controls sequential/parallel mode (default: sequential)
+  - Supports three execution modes:
+    - `sequential`: One at a time (default)
+    - `parallel`: All iterations concurrently
+    - `parallel-limit`: Controlled concurrency (requires `concurrency` parameter)
   - Each iteration runs in its own isolated temp directory
   - Aggregates results across all iterations with statistics
+  - Displays list of all preserved temp directories when `keepTempDir: true` is set
 - `runSingleIteration()`: Internal function that handles one iteration
   - Manages temp directory lifecycle (copy, setup git, cleanup)
   - Integrates with Claude Code Agent SDK using the `query()` function from `@anthropic-ai/claude-agent-sdk`
@@ -65,7 +72,13 @@ npx tsx examples/phase2-multi-iteration.ts
 - **Logging**: By default, shows user-friendly output (tool uses, completions). Set `verbose: true` in `EvalConfig` to see full SDK message JSON dumps
 
 **Type System** (`src/types.ts`):
-- `EvalConfig`: Configuration for running evaluations (name, prompt, projectDir, timeout, scorers, verbose, keepTempDir)
+- `ExecutionMode`: Type for execution modes (`'sequential' | 'parallel' | 'parallel-limit'`)
+- `ExecutionConfig`: Configuration for execution control
+  - `mode: ExecutionMode`: Which execution strategy to use
+  - `concurrency?: number`: Required when mode is 'parallel-limit'
+- `EvalConfig`: Configuration for running evaluations (name, prompt, projectDir, iterations, execution, timeout, scorers, verbose, keepTempDir)
+  - `iterations?: number`: How many times to run the eval (default: 1)
+  - `execution?: ExecutionConfig`: Execution strategy (default: { mode: 'sequential' })
   - `verbose?: boolean`: Optional flag to enable detailed SDK logging (default: false)
   - `keepTempDir?: boolean`: Optional flag to preserve temp directory after eval (default: false)
   - `environmentVariables?: Record<string, string> | (context) => Record<string, string> | Promise<...>`: Optional env vars (static or dynamic)

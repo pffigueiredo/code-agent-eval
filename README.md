@@ -7,6 +7,7 @@
 ## Features
 
 - ✅ **Multi-iteration evaluations**: Run prompts multiple times to test reliability
+- ✅ **Parallel execution**: Run iterations sequentially, in parallel, or with controlled concurrency
 - ✅ **Isolated execution**: Each run happens in a temporary directory, your codebase stays pristine
 - ✅ **Deterministic scorers**: Built-in build/test/lint validators
 - ✅ **Aggregate metrics**: Pass rate, mean/min/max scores, standard deviation
@@ -31,14 +32,36 @@ bun add cc-eval
 ```typescript
 import { runClaudeCodeEval, scorers } from 'cc-eval';
 
+// Sequential execution (default)
 const result = await runClaudeCodeEval({
   name: 'add-feature',
   prompt: 'Add a health check endpoint',
   projectDir: './my-app',
+  iterations: 5,
   scorers: [scorers.buildSuccess(), scorers.testSuccess()],
-}, 5); // Run 5 iterations
+});
 
 console.log(`Pass rate: ${result.aggregateScores._overall.passRate * 100}%`);
+
+// Parallel execution
+const parallelResult = await runClaudeCodeEval({
+  name: 'add-feature',
+  prompt: 'Add a health check endpoint',
+  projectDir: './my-app',
+  iterations: 10,
+  execution: { mode: 'parallel' }, // Run all 10 iterations concurrently
+  scorers: [scorers.buildSuccess(), scorers.testSuccess()],
+});
+
+// Parallel with controlled concurrency
+const limitedResult = await runClaudeCodeEval({
+  name: 'add-feature',
+  prompt: 'Add a health check endpoint',
+  projectDir: './my-app',
+  iterations: 20,
+  execution: { mode: 'parallel-limit', concurrency: 3 }, // Max 3 concurrent iterations
+  scorers: [scorers.buildSuccess(), scorers.testSuccess()],
+});
 ```
 
 ## Development
@@ -66,6 +89,7 @@ npm run build
 ```bash
 npx tsx examples/phase1-single-run.ts
 npx tsx examples/phase2-multi-iteration.ts
+npx tsx examples/parallel-execution.ts
 ```
 
 ## Documentation
