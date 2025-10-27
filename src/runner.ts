@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import type { EvalResult, Scorer, ScorerResult, TokenUsage, EnvGeneratorContext, IterationResult, AggregateScore, ExecutionConfig } from './types';
 import { generateEnvironmentVariables, validateEnvironmentVariables } from './env-generator';
 import { writeResults } from './results-writer';
+import { buildExecCommand } from './scorers/factories';
 
 export interface EvalConfig {
   name: string;
@@ -328,15 +329,18 @@ async function runSingleIteration(
         cwd: tempDir,
       });
 
-      // 6. Run scorers with environment variables in context
+      // 6. Run scorers with environment variables and execCommand utility in context
       console.log(`[Iteration ${context.iteration}] Running scorers...`);
       const scores: Record<string, ScorerResult> = {};
+      const execCommand = buildExecCommand(tempDir);
+
       for (const scorer of config.scorers || []) {
-        const result = await scorer.fn({
+        const result = await scorer.evaluate({
           workingDir: tempDir,
           diff,
           agentOutput,
           environmentVariables: envVars,
+          execCommand,
         });
         scores[scorer.name] = result;
         console.log(`[Iteration ${context.iteration}]   ${scorer.name}: ${result.score.toFixed(2)} - ${result.reason}`);

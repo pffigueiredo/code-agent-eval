@@ -1,62 +1,47 @@
-import { execa } from 'execa';
 import type { Scorer } from '../types';
+import { createScorer } from './factories';
 
+/**
+ * Creates a scorer that runs `npm run build` and scores 1.0 if successful, 0.0 if it fails.
+ * Uses a 5-minute timeout.
+ */
 export function buildSuccess(): Scorer {
-  return {
-    name: 'build',
-    fn: async ({ workingDir }) => {
-      try {
-        await execa('npm', ['run', 'build'], {
-          cwd: workingDir,
-          timeout: 300000 // 5 minutes
-        });
-        return { score: 1.0, reason: 'Build passed' };
-      } catch (error) {
-        return {
-          score: 0.0,
-          reason: `Build failed: ${error instanceof Error ? error.message : String(error)}`
-        };
-      }
-    }
-  };
+  return createScorer('build', ({ execCommand }) =>
+    execCommand({
+      command: 'npm',
+      args: ['run', 'build'],
+      timeout: 300000, // 5 minutes
+      successMessage: 'Build passed',
+    })
+  );
 }
 
+/**
+ * Creates a scorer that runs `npm run test` and scores 1.0 if successful, 0.0 if it fails.
+ * Uses a 5-minute timeout.
+ */
 export function testSuccess(): Scorer {
-  return {
-    name: 'test',
-    fn: async ({ workingDir }) => {
-      try {
-        await execa('npm', ['run', 'test'], {
-          cwd: workingDir,
-          timeout: 300000
-        });
-        return { score: 1.0, reason: 'Tests passed' };
-      } catch (error) {
-        return {
-          score: 0.0,
-          reason: `Tests failed: ${error instanceof Error ? error.message : String(error)}`
-        };
-      }
-    }
-  };
+  return createScorer('test', ({ execCommand }) =>
+    execCommand({
+      command: 'npm',
+      args: ['run', 'test'],
+      timeout: 300000, // 5 minutes
+      successMessage: 'Tests passed',
+    })
+  );
 }
 
+/**
+ * Creates a scorer that runs `npm run lint` and scores 1.0 if successful, 0.0 if it fails.
+ * Uses a 1-minute timeout.
+ */
 export function lintSuccess(): Scorer {
-  return {
-    name: 'lint',
-    fn: async ({ workingDir }) => {
-      try {
-        await execa('npm', ['run', 'lint'], {
-          cwd: workingDir,
-          timeout: 60000
-        });
-        return { score: 1.0, reason: 'Lint passed' };
-      } catch (error) {
-        return {
-          score: 0.0,
-          reason: `Lint failed: ${error instanceof Error ? error.message : String(error)}`
-        };
-      }
-    }
-  };
+  return createScorer('lint', ({ execCommand }) =>
+    execCommand({
+      command: 'npm',
+      args: ['run', 'lint'],
+      timeout: 60000, // 1 minute
+      successMessage: 'Lint passed',
+    })
+  );
 }

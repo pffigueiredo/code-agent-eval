@@ -14,6 +14,7 @@
 - ✅ **Environment variable injection**: Static or dynamic env vars per iteration
 - ✅ **Git diff capture**: See exactly what changed
 - ✅ **Flexible scoring**: Write custom scorers or use built-ins
+- ✅ **Results export**: Export detailed results to markdown files
 
 ## Installation
 
@@ -90,6 +91,7 @@ npm run build
 npx tsx examples/phase1-single-run.ts
 npx tsx examples/phase2-multi-iteration.ts
 npx tsx examples/parallel-execution.ts
+npx tsx examples/results-export.ts
 ```
 
 ## Documentation

@@ -1,30 +1,29 @@
-// Types
-export type {
-  EvalResult,
-  Scorer,
-  ScorerContext,
-  ScorerResult,
-  TokenUsage,
-  EnvGeneratorContext,
-  IterationResult,
-  AggregateScore,
-  ExecutionConfig,
-  ExecutionMode,
-} from './types';
-
 // Core runner
 export { runClaudeCodeEval, type EvalConfig } from './runner';
 
-// Environment variable generation
-export { generateEnvironmentVariables, validateEnvironmentVariables } from './env-generator';
+// User-facing types
+export type {
+  EvalResult,
+  IterationResult,
+  AggregateScore,
+  Scorer,
+  ScorerContext,
+  ScorerResult,
+  ExecutionConfig,
+  ExecutionMode,
+  ExecCommandOptions,
+  EnvGeneratorContext,
+  TokenUsage,
+} from './types';
 
-// Results writer
-export { writeResults, formatResultsAsMarkdown } from './results-writer';
-
-// Built-in scorers
+// Built-in scorers and factory
 import * as codeScorers from './scorers/code';
+import { createScorer } from './scorers/factories';
 export const scorers = {
+  // Pre-built scorers
   buildSuccess: codeScorers.buildSuccess,
   testSuccess: codeScorers.testSuccess,
   lintSuccess: codeScorers.lintSuccess,
+  // Factory function
+  createScorer,
 };

@@ -7,7 +7,23 @@ export interface ExecutionConfig {
 
 export interface Scorer {
   name: string;
-  fn: (context: ScorerContext) => Promise<ScorerResult>;
+  evaluate: (context: ScorerContext) => Promise<ScorerResult>;
+}
+
+/**
+ * Options for executing a command in a scorer
+ */
+export interface ExecCommandOptions {
+  /** Command to execute (e.g., 'npm', 'pnpm', 'bun') */
+  command: string;
+  /** Arguments to pass to the command (e.g., ['run', 'build']) */
+  args: string[];
+  /** Timeout in milliseconds (default: 120000 = 2 minutes) */
+  timeout?: number;
+  /** Custom success message (default: "{command} passed") */
+  successMessage?: string;
+  /** Custom failure message prefix (default: "{command} failed") */
+  failureMessage?: string;
 }
 
 export interface ScorerContext {
@@ -15,6 +31,8 @@ export interface ScorerContext {
   diff: string; // Git diff output
   agentOutput: string; // Raw agent response
   environmentVariables?: Record<string, string>; // Env vars used in this iteration
+  /** Utility function to execute shell commands and return scored results */
+  execCommand: (options: ExecCommandOptions) => Promise<ScorerResult>;
 }
 
 export interface ScorerResult {
