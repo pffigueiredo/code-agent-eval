@@ -8,6 +8,7 @@ import type { EvalResult, Scorer, ScorerResult, TokenUsage, EnvGeneratorContext,
 import { generateEnvironmentVariables, validateEnvironmentVariables } from './env-generator';
 import { writeResults } from './results-writer';
 import { buildExecCommand } from './scorers/factories';
+import { detectPackageManager, getInstallCommand } from './package-manager';
 
 export interface EvalConfig {
   name: string;
@@ -27,6 +28,7 @@ export interface EvalConfig {
   verbose?: boolean; // Default: false. Show detailed SDK message logs when true
   keepTempDir?: boolean; // Default: false. Keep temp directory after eval for inspection
   resultsDir?: string; // Optional: Directory to write markdown results file
+  installDependencies?: boolean; // Default: true. Set false to skip package installation
   environmentVariables?:
     | Record<string, string>
     | ((context: import('./types').EnvGeneratorContext) => Record<string, string> | Promise<Record<string, string>>);
@@ -268,6 +270,29 @@ async function runSingleIteration(
       await execa('git', ['commit', '-m', 'Initial commit'], { cwd: tempDir });
     }
 
+    // 2.5. Install dependencies (unless explicitly disabled)
+    const shouldInstall = config.installDependencies !== false; // Default to true
+    if (shouldInstall) {
+      console.log(`[Iteration ${context.iteration}] Installing dependencies...`);
+      const packageManager = await detectPackageManager(config.projectDir);
+      const installCommand = getInstallCommand(packageManager);
+      console.log(`[Iteration ${context.iteration}] Using ${packageManager} (detected from lock file)`);
+
+      try {
+        await execa(installCommand[0], installCommand.slice(1), {
+          cwd: tempDir,
+          timeout: 600000, // 10 minute timeout for large projects
+        });
+        console.log(`[Iteration ${context.iteration}] Dependencies installed successfully`);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`[Iteration ${context.iteration}] Failed to install dependencies: ${errorMessage}`);
+        throw new Error(`Dependency installation failed: ${errorMessage}`);
+      }
+    } else {
+      console.log(`[Iteration ${context.iteration}] Skipping dependency installation (installDependencies=false)`);
+    }
+
     // 3. Create .env file with environment variables (for Claude Code Agent to use)
     if (Object.keys(envVars).length > 0) {
       const envFileContent = Object.entries(envVars)
@@ -288,7 +313,29 @@ async function runSingleIteration(
         options: {
           cwd: tempDir,
           settingSources: ['project'],
+          // Bypass permission prompts for file operations
           permissionMode: 'bypassPermissions',
+          // Instruct Claude to never ask questions and proceed autonomously
+          // This prevents the agent from pausing execution waiting for user input
+          // Note: Users can override this via config.claudeCodeOptions.systemPrompt if needed
+          systemPrompt: `You are running in automated evaluation mode in an isolated sandbox environment.
+
+CRITICAL ISOLATION RULES:
+- Your current working directory (cwd) is: ${tempDir}
+- ALL file operations MUST use relative paths ONLY
+- NEVER use absolute paths for project files
+- NEVER navigate outside your current working directory
+- If tools provide absolute paths to external directories (like plugin base directories), those are ONLY for reading tool metadata - NOT for writing project files
+- Project files (CLAUDE.md, AGENTS.md, .cursor files, etc.) MUST be written using relative paths from cwd
+
+AUTOMATION RULES:
+- Never ask questions or wait for user confirmation
+- Always proceed with changes automatically
+- Make reasonable decisions independently
+- Complete all tasks without requesting approval or clarification
+
+REMEMBER: You are in a temporary, isolated test directory. All your work stays here.`,
+          // User overrides come last and take precedence
           ...config.claudeCodeOptions,
         },
       });
@@ -355,6 +402,7 @@ async function runSingleIteration(
         duration,
         scores,
         diff,
+        agentOutput,
         tokenUsage,
         workingDir: config.keepTempDir ? tempDir : undefined,
         environmentVariables: envVars,
@@ -370,6 +418,7 @@ async function runSingleIteration(
       duration: Date.now() - startTime,
       scores: {},
       diff: '',
+      agentOutput: '', // No agent output available in error case
       error: error instanceof Error ? error.message : String(error),
       environmentVariables: envVars,
     };
@@ -648,11 +697,13 @@ export async function runClaudeCodeEval(
     tokenUsage: totalTokenUsage.inputTokens > 0 ? totalTokenUsage : undefined,
   };
 
-  // Write results to markdown file if resultsDir is specified
+  // Write results to directory if resultsDir is specified
   if (config.resultsDir) {
     try {
-      const resultPath = await writeResults(evalResult, config.resultsDir);
-      console.log(`Results written to: ${resultPath}\n`);
+      const resultDir = await writeResults(evalResult, config.resultsDir);
+      console.log(`\nResults written to: ${resultDir}/`);
+      console.log(`  - Aggregate results: results.md`);
+      console.log(`  - Iteration logs: iteration-*.log\n`);
     } catch (error) {
       console.error('Failed to write results:', error instanceof Error ? error.message : String(error));
     }

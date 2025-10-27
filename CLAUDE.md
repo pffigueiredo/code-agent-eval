@@ -49,10 +49,11 @@ npx tsx examples/results-export.ts
 
 ### Core Workflow
 1. **Copy**: User's project is copied to isolated temp directory (OS-specific temp dir + `eval-{uuid}`)
-2. **Execute**: Claude Code Agent SDK runs against the temp directory with user's prompt
-3. **Capture**: Git diff captures all changes made by the agent
-4. **Score**: Deterministic and LLM-based scorers evaluate the results
-5. **Cleanup**: Temp directory is deleted (unless `keepTempDir: true` is set)
+2. **Install**: Dependencies are automatically installed using detected package manager (npm/yarn/pnpm/bun)
+3. **Execute**: Claude Code Agent SDK runs against the temp directory with user's prompt
+4. **Capture**: Git diff captures all changes made by the agent
+5. **Score**: Deterministic and LLM-based scorers evaluate the results
+6. **Cleanup**: Temp directory is deleted (unless `keepTempDir: true` is set)
 
 ### Key Components
 
@@ -69,7 +70,9 @@ npx tsx examples/results-export.ts
   - Aggregates results across all iterations with statistics
   - Displays list of all preserved temp directories when `keepTempDir: true` is set
 - `runSingleIteration()`: Internal function that handles one iteration
-  - Manages temp directory lifecycle (copy, setup git, cleanup)
+  - Manages temp directory lifecycle (copy, setup git, install dependencies, cleanup)
+  - Automatically detects and uses correct package manager (npm/yarn/pnpm/bun)
+  - Installs dependencies before running agent (can be disabled with `installDependencies: false`)
   - Integrates with Claude Code Agent SDK using the `query()` function from `@anthropic-ai/claude-agent-sdk`
   - Collects output from the async generator pattern returned by `query()`
   - Executes scorers for that iteration
@@ -82,15 +85,16 @@ npx tsx examples/results-export.ts
 - `ExecutionConfig`: Configuration for execution control
   - `mode: ExecutionMode`: Which execution strategy to use
   - `concurrency?: number`: Required when mode is 'parallel-limit'
-- `EvalConfig`: Configuration for running evaluations (name, prompt, projectDir, iterations, execution, timeout, scorers, verbose, keepTempDir, resultsDir)
+- `EvalConfig`: Configuration for running evaluations (name, prompt, projectDir, iterations, execution, timeout, scorers, verbose, keepTempDir, resultsDir, installDependencies)
   - `iterations?: number`: How many times to run the eval (default: 1)
   - `execution?: ExecutionConfig`: Execution strategy (default: { mode: 'sequential' })
   - `verbose?: boolean`: Optional flag to enable detailed SDK logging (default: false)
   - `keepTempDir?: boolean`: Optional flag to preserve temp directory after eval (default: false)
   - `resultsDir?: string`: Optional directory path to write markdown results file
+  - `installDependencies?: boolean`: Optional flag to skip dependency installation (default: true)
   - `environmentVariables?: Record<string, string> | (context) => Record<string, string> | Promise<...>`: Optional env vars (static or dynamic)
 - `EvalResult`: Results from all iterations (evalName, timestamp, iterations, aggregateScores, tokenUsage)
-- `IterationResult`: Results from a single iteration (iterationId, success, duration, scores, diff, environmentVariables, tokenUsage)
+- `IterationResult`: Results from a single iteration (iterationId, success, duration, scores, diff, agentOutput, environmentVariables, tokenUsage)
 - `AggregateScore`: Statistics for a scorer across iterations (mean, min, max, stdDev, passRate)
 - `EnvGeneratorContext`: Context for dynamic env var generation (iteration, evalName, totalIterations)
 - `Scorer`: Interface for implementing evaluation scorers (name + evaluate function)
@@ -120,24 +124,40 @@ npx tsx examples/results-export.ts
   - Warns when overriding system variables
   - Validates all values are strings
 
+**Package Manager Detection** (`src/package-manager.ts`):
+- `detectPackageManager(projectDir)`: Automatically detects package manager from lock files
+  - Checks for `bun.lockb` or `bun.lock` → returns 'bun'
+  - Checks for `pnpm-lock.yaml` → returns 'pnpm'
+  - Checks for `yarn.lock` → returns 'yarn'
+  - Checks for `package-lock.json` → returns 'npm'
+  - Defaults to 'npm' if no lock file found
+- `getInstallCommand(packageManager)`: Returns install command array for a package manager
+  - npm → `['npm', 'install']`
+  - yarn → `['yarn', 'install']`
+  - pnpm → `['pnpm', 'install']`
+  - bun → `['bun', 'install']`
+
 **Public API** (`src/index.ts`):
 - Exports all types, runner function, and built-in scorers
 - Exports environment variable utilities (`generateEnvironmentVariables`, `validateEnvironmentVariables`)
+- Exports package manager utilities (`detectPackageManager`, `getInstallCommand`, `PackageManager`)
 - Exports scorer factory (`createScorer`) and utility types (`ExecCommandOptions`)
 - Exports results writer utilities (`writeResults`, `formatResultsAsMarkdown`)
 - Scorers are grouped under `scorers` namespace (includes both pre-built scorers and factory function)
 
 **Results Writer** (`src/results-writer.ts`):
-- `writeResults(result, outputDir)`: Writes evaluation results as markdown file to specified directory
-  - Generates filename with eval name and timestamp
-  - Returns the path to the written file
+- `writeResults(result, outputDir)`: Writes evaluation results to a structured directory
+  - Creates directory: `{outputDir}/{evalName}-{timestamp}/`
+  - Writes `results.md` with aggregate results
+  - Writes `iteration-N.log` files with full agent output per iteration
+  - Returns the path to the created directory
 - `formatResultsAsMarkdown(result)`: Formats `EvalResult` as markdown string
   - Includes summary, aggregate scores table, per-iteration results, token usage
   - Can be used to generate custom reports
 
 ### Exporting Results
 
-The library can automatically export detailed results to markdown files:
+The library automatically exports detailed results to a structured directory:
 
 ```typescript
 import { runClaudeCodeEval, scorers } from 'cc-eval';
@@ -148,32 +168,52 @@ const result = await runClaudeCodeEval({
   projectDir: './my-app',
   iterations: 10,
   scorers: [scorers.buildSuccess(), scorers.testSuccess()],
-  // Export results to markdown
+  // Export results to directory
   resultsDir: './eval-results',
 });
 
-// Results are written to: eval-results/add-feature-YYYY-MM-DD-HHMMSS.md
+// Results are written to: eval-results/add-feature-YYYY-MM-DD-HHMMSS/
+//   - results.md (aggregate results)
+//   - iteration-0.log (full agent output for iteration 0)
+//   - iteration-1.log (full agent output for iteration 1)
+//   - ... (one log file per iteration)
 ```
 
-The markdown file includes:
+**Directory Structure:**
+```
+eval-results/
+└── add-feature-2025-01-15-143022/
+    ├── results.md          # Aggregate results
+    ├── iteration-0.log     # Full agent output for iteration 0
+    ├── iteration-1.log     # Full agent output for iteration 1
+    └── ...                 # One log per iteration
+```
+
+**results.md includes:**
 - Summary with duration, pass rate, and overall status
 - Aggregate scores table (mean, min, max, stdDev, passRate per scorer)
 - Per-iteration results table with all scores
 - Detailed breakdown with reasons and metadata for each scorer
 - Token usage statistics (total and per-iteration)
 
+**iteration-N.log includes:**
+- Full agent output (tool uses, reasoning, completions)
+- Environment variables used for that iteration
+- Scores and reasons for that iteration
+- Token usage for that iteration
+
 You can also manually format and write results:
 
 ```typescript
 import { formatResultsAsMarkdown, writeResults } from 'cc-eval';
 
-// Format as markdown string
+// Format aggregate results as markdown string
 const markdown = formatResultsAsMarkdown(result);
 console.log(markdown);
 
-// Or write to custom location
-const filePath = await writeResults(result, './custom-dir');
-console.log(`Results written to: ${filePath}`);
+// Or write to custom location (creates directory structure)
+const dirPath = await writeResults(result, './custom-dir');
+console.log(`Results written to: ${dirPath}`);
 ```
 
 ### Creating Custom Scorers
@@ -290,11 +330,20 @@ for await (const message of result) {
 }
 ```
 
-**Permission Mode**:
-- The library defaults to `permissionMode: 'bypassPermissions'` to enable unattended eval runs
-- This auto-approves all file operations and tool uses without blocking on questions
-- Safe because evals run in isolated temp directories that get deleted after each run
-- Users can override via `claudeCodeOptions` if custom permission logic is needed
+**Automated Evaluation Mode**:
+The library configures the SDK for fully unattended operation:
+- **Permission Mode**: `permissionMode: 'bypassPermissions'` auto-approves all file operations and tool uses
+- **System Prompt**: A special system prompt instructs Claude to never ask questions or wait for user confirmation
+  - Claude makes all decisions independently without requesting approval
+  - Prevents the agent from pausing execution to ask clarifying questions
+  - Example: Instead of "Would you like me to proceed?", Claude proceeds automatically
+- **Safety**: Safe because evals run in isolated temp directories that get deleted after each run
+- **Customization**: Users can override both settings via `claudeCodeOptions` if custom behavior is needed
+
+**Why this is necessary**:
+- `bypassPermissions` only handles permission prompts (file edits, tool calls)
+- Without the system prompt, Claude may still ask general questions like "Should I add these references?"
+- The system prompt ensures fully autonomous execution without human intervention
 
 ### Temp Directory Isolation
 
@@ -302,6 +351,10 @@ for await (const message of result) {
   - macOS/Linux: `/tmp/eval-{uuid}` or `/var/folders/.../eval-{uuid}`
   - Windows: `C:\Users\...\AppData\Local\Temp\eval-{uuid}`
 - Node modules are skipped during copy (filtered out for performance)
+- Dependencies are automatically installed in temp directory after copy
+  - Package manager is auto-detected from lock files (npm/yarn/pnpm/bun)
+  - Can be disabled with `installDependencies: false` config option
+  - 10-minute timeout for large projects
 - Git history is preserved or initialized if not present
 - Original `projectDir` is NEVER modified
 - Cleanup happens automatically unless `keepTempDir: true` is set in config
@@ -364,7 +417,28 @@ The library assumes projects are git repositories. If not:
 - Agent SDK errors are caught and reported in `EvalResult.error`
 
 ### Package Manager
-Currently hardcoded to use `npm`. Future phases will detect lockfiles to support pnpm/yarn/bun.
+The library automatically detects the package manager from lock files:
+- `bun.lockb` or `bun.lock` → uses bun
+- `pnpm-lock.yaml` → uses pnpm
+- `yarn.lock` → uses yarn
+- `package-lock.json` → uses npm
+- Falls back to npm if no lock file found
+
+Dependencies are installed automatically after copying the project to temp directory (can be disabled with `installDependencies: false`).
+
+### Plugin Isolation
+**Plugins are allowed during eval runs** but are constrained to the sandbox via system prompt.
+
+When plugins are loaded, they can provide absolute paths (e.g., to skill directories, templates, or documentation) that exist outside the temp directory. If the agent follows these paths naively, it could escape the sandbox and modify files in the original location instead of the isolated test copy.
+
+**Example of the issue:** In one incident, the `add-neon-docs` skill provided its base directory path (`/Users/.../neon-plugin/skills/add-neon-docs`), and the agent modified the original `CLAUDE.md` file instead of the temp copy. The git diff in the temp directory was empty, causing scorer failures.
+
+**Solution:** The library includes explicit sandbox isolation rules in the system prompt that instruct Claude to:
+- Use only relative paths for project files
+- Never navigate outside the current working directory
+- Treat plugin-provided absolute paths as metadata-only (not for writing project files)
+
+This allows plugins to work normally while ensuring all file modifications stay within the isolated temp directory. Users can pass plugins via `claudeCodeOptions.plugins` to test plugin-based workflows.
 
 ## Design Decisions
 

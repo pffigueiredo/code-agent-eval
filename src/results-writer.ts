@@ -1,6 +1,6 @@
 import fs from 'fs-extra';
 import path from 'path';
-import type { EvalResult } from './types';
+import type { EvalResult, IterationResult } from './types';
 
 /**
  * Format a timestamp as YYYY-MM-DD-HHMMSS for filenames
@@ -21,6 +21,99 @@ function formatTimestampForFilename(isoString: string): string {
  */
 function sanitizeForFilename(name: string): string {
   return name.replace(/[^a-z0-9-_]/gi, '-').toLowerCase();
+}
+
+/**
+ * Format a single iteration's output as a log file
+ */
+function formatIterationLog(iteration: IterationResult): string {
+  const lines: string[] = [];
+
+  // Header
+  lines.push(`Iteration ${iteration.iterationId}`);
+  lines.push('='.repeat(60));
+  lines.push(`Status: ${iteration.success ? '✓ PASS' : '✗ FAIL'}`);
+  lines.push(`Duration: ${(iteration.duration / 1000).toFixed(2)}s`);
+  lines.push('');
+
+  // Environment variables
+  if (Object.keys(iteration.environmentVariables).length > 0) {
+    lines.push('Environment Variables:');
+    for (const [key, value] of Object.entries(iteration.environmentVariables)) {
+      lines.push(`  ${key}=${value}`);
+    }
+    lines.push('');
+  }
+
+  // Agent output
+  lines.push('='.repeat(60));
+  lines.push('AGENT OUTPUT');
+  lines.push('='.repeat(60));
+  lines.push('');
+
+  if (iteration.agentOutput) {
+    // Pretty print the JSON for better readability
+    try {
+      const parsed = JSON.parse(iteration.agentOutput);
+      lines.push(JSON.stringify(parsed, null, 2));
+    } catch {
+      // If parsing fails, just dump the raw output
+      lines.push(iteration.agentOutput);
+    }
+  } else {
+    lines.push('(No agent output available)');
+  }
+  lines.push('');
+
+  // Scores
+  if (Object.keys(iteration.scores).length > 0) {
+    lines.push('='.repeat(60));
+    lines.push('SCORES');
+    lines.push('='.repeat(60));
+    lines.push('');
+    for (const [name, score] of Object.entries(iteration.scores)) {
+      lines.push(`${name}: ${score.score.toFixed(3)}`);
+      lines.push(`  Reason: ${score.reason}`);
+      if (score.metadata && Object.keys(score.metadata).length > 0) {
+        lines.push(`  Metadata: ${JSON.stringify(score.metadata)}`);
+      }
+      lines.push('');
+    }
+  }
+
+  // Error (if any)
+  if (iteration.error) {
+    lines.push('='.repeat(60));
+    lines.push('ERROR');
+    lines.push('='.repeat(60));
+    lines.push('');
+    lines.push(iteration.error);
+    lines.push('');
+  }
+
+  // Token usage
+  if (iteration.tokenUsage) {
+    lines.push('='.repeat(60));
+    lines.push('TOKEN USAGE');
+    lines.push('='.repeat(60));
+    lines.push('');
+    lines.push(`Input Tokens: ${iteration.tokenUsage.inputTokens.toLocaleString()}`);
+    lines.push(`Output Tokens: ${iteration.tokenUsage.outputTokens.toLocaleString()}`);
+    if (iteration.tokenUsage.cacheCreationInputTokens) {
+      lines.push(`Cache Creation Input Tokens: ${iteration.tokenUsage.cacheCreationInputTokens.toLocaleString()}`);
+    }
+    if (iteration.tokenUsage.cacheReadInputTokens) {
+      lines.push(`Cache Read Input Tokens: ${iteration.tokenUsage.cacheReadInputTokens.toLocaleString()}`);
+    }
+    const totalInput = iteration.tokenUsage.inputTokens +
+      (iteration.tokenUsage.cacheCreationInputTokens || 0) +
+      (iteration.tokenUsage.cacheReadInputTokens || 0);
+    const total = totalInput + iteration.tokenUsage.outputTokens;
+    lines.push(`Total: ${total.toLocaleString()} tokens`);
+    lines.push('');
+  }
+
+  return lines.join('\n');
 }
 
 /**
@@ -180,27 +273,37 @@ export function formatResultsAsMarkdown(result: EvalResult): string {
 }
 
 /**
- * Write evaluation results to a markdown file in the specified directory
+ * Write evaluation results to a directory with structured output
  * @param result - The evaluation result to write
- * @param outputDir - Directory where the markdown file should be written
- * @returns The path to the written file
+ * @param outputDir - Base directory where results should be written
+ * @returns The path to the created directory
  */
 export async function writeResults(
   result: EvalResult,
   outputDir: string
 ): Promise<string> {
-  // Ensure output directory exists
+  // Ensure base output directory exists
   await fs.ensureDir(outputDir);
 
-  // Generate filename: {evalName}-{timestamp}.md
+  // Generate directory name: {evalName}-{timestamp}
   const sanitizedName = sanitizeForFilename(result.evalName);
   const formattedTimestamp = formatTimestampForFilename(result.timestamp);
-  const filename = `${sanitizedName}-${formattedTimestamp}.md`;
-  const filePath = path.join(outputDir, filename);
+  const dirName = `${sanitizedName}-${formattedTimestamp}`;
+  const dirPath = path.join(outputDir, dirName);
 
-  // Format and write markdown
-  const markdown = formatResultsAsMarkdown(result);
-  await fs.writeFile(filePath, markdown, 'utf-8');
+  // Create the results directory
+  await fs.ensureDir(dirPath);
 
-  return filePath;
+  // Write aggregate results.md
+  const resultsMarkdown = formatResultsAsMarkdown(result);
+  await fs.writeFile(path.join(dirPath, 'results.md'), resultsMarkdown, 'utf-8');
+
+  // Write per-iteration logs
+  for (const iteration of result.iterations) {
+    const logContent = formatIterationLog(iteration);
+    const logFilename = `iteration-${iteration.iterationId}.log`;
+    await fs.writeFile(path.join(dirPath, logFilename), logContent, 'utf-8');
+  }
+
+  return dirPath;
 }

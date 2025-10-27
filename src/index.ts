@@ -27,3 +27,12 @@ export const scorers = {
   // Factory function
   createScorer,
 };
+
+// Environment variable utilities
+export { generateEnvironmentVariables, validateEnvironmentVariables } from './env-generator';
+
+// Package manager utilities
+export { detectPackageManager, getInstallCommand, type PackageManager } from './package-manager';
+
+// Results writer utilities
+export { writeResults, formatResultsAsMarkdown } from './results-writer';

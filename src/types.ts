@@ -60,6 +60,7 @@ export interface IterationResult {
   duration: number;
   scores: Record<string, ScorerResult>;
   diff: string;
+  agentOutput: string; // Full agent conversation/messages
   tokenUsage?: TokenUsage;
   workingDir?: string;
   environmentVariables: Record<string, string>;
