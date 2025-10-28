@@ -109,17 +109,6 @@ get_temp_dir() {
     fi
 }
 
-# Get human-readable size
-get_size() {
-    local dir=$1
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS
-        du -sh "$dir" 2>/dev/null | awk '{print $1}'
-    else
-        # Linux
-        du -sh "$dir" 2>/dev/null | awk '{print $1}'
-    fi
-}
 
 # Main cleanup logic
 main() {
@@ -152,11 +141,8 @@ main() {
     print_color "$YELLOW" "Found ${#eval_dirs[@]} eval artifact(s):"
     echo ""
 
-    local total_size=0
     for dir in "${eval_dirs[@]}"; do
-        local size=$(get_size "$dir")
-        local basename=$(basename "$dir")
-        echo "  • $basename ($size)"
+        echo "  • ${dir##*/}"
 
         if [[ "$VERBOSE" == true ]]; then
             print_color "$BLUE" "    Path: $dir"
@@ -188,18 +174,21 @@ main() {
     echo ""
     print_color "$BLUE" "Cleaning up..."
 
+    # Use parallel deletion with xargs
+    if [[ "$VERBOSE" == true ]]; then
+        printf '%s\0' "${eval_dirs[@]}" | xargs -0 -P 6 -I {} sh -c 'rm -rf "{}" && echo "  ✓ Deleted $(basename "{}")"'
+    else
+        printf '%s\0' "${eval_dirs[@]}" | xargs -0 -P 6 rm -rf
+    fi
+
+    # Count successful deletions by checking which directories no longer exist
     local deleted=0
     local failed=0
-
     for dir in "${eval_dirs[@]}"; do
-        local basename=$(basename "$dir")
-        if rm -rf "$dir" 2>/dev/null; then
-            if [[ "$VERBOSE" == true ]]; then
-                print_color "$GREEN" "  ✓ Deleted $basename"
-            fi
+        if [[ ! -e "$dir" ]]; then
             ((deleted++))
         else
-            print_color "$RED" "  ✗ Failed to delete $basename"
+            print_color "$RED" "  ✗ Failed to delete ${dir##*/}"
             ((failed++))
         fi
     done

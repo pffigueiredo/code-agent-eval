@@ -144,15 +144,15 @@ export function formatResultsAsMarkdown(result: EvalResult): string {
   // Aggregate scores table (exclude _overall)
   const scorerNames = Object.keys(result.aggregateScores).filter(name => name !== '_overall');
   if (scorerNames.length > 0) {
-    lines.push('## Aggregate Scores');
+    lines.push('## Scorer Summary');
     lines.push('');
-    lines.push('| Scorer | Mean | Min | Max | Std Dev | Pass Rate |');
-    lines.push('|--------|------|-----|-----|---------|-----------|');
+    lines.push('| Scorer | Pass Rate |');
+    lines.push('|--------|-----------|');
 
     for (const name of scorerNames) {
       const agg = result.aggregateScores[name];
       lines.push(
-        `| ${name} | ${agg.mean.toFixed(3)} | ${agg.min.toFixed(3)} | ${agg.max.toFixed(3)} | ${agg.stdDev.toFixed(3)} | ${(agg.passRate * 100).toFixed(1)}% |`
+        `| ${name} | ${(agg.passRate * 100).toFixed(1)}% |`
       );
     }
     lines.push('');
@@ -223,49 +223,16 @@ export function formatResultsAsMarkdown(result: EvalResult): string {
     }
   }
 
-  // Token usage table
+  // Token usage summary
   if (result.tokenUsage) {
-    lines.push('## Token Usage');
-    lines.push('');
-    lines.push('| Metric | Value |');
-    lines.push('|--------|-------|');
-    lines.push(`| Input Tokens | ${result.tokenUsage.inputTokens.toLocaleString()} |`);
-    lines.push(`| Output Tokens | ${result.tokenUsage.outputTokens.toLocaleString()} |`);
-    if (result.tokenUsage.cacheCreationInputTokens) {
-      lines.push(`| Cache Creation Input Tokens | ${result.tokenUsage.cacheCreationInputTokens.toLocaleString()} |`);
-    }
-    if (result.tokenUsage.cacheReadInputTokens) {
-      lines.push(`| Cache Read Input Tokens | ${result.tokenUsage.cacheReadInputTokens.toLocaleString()} |`);
-    }
     const totalInput = result.tokenUsage.inputTokens +
       (result.tokenUsage.cacheCreationInputTokens || 0) +
       (result.tokenUsage.cacheReadInputTokens || 0);
     const total = totalInput + result.tokenUsage.outputTokens;
-    lines.push(`| **Total** | **${total.toLocaleString()}** |`);
+
+    lines.push('## Token Usage');
     lines.push('');
-  }
-
-  // Per-iteration token usage if available
-  const hasIterTokenUsage = result.iterations.some(iter => iter.tokenUsage);
-  if (hasIterTokenUsage) {
-    lines.push('### Token Usage Per Iteration');
-    lines.push('');
-    lines.push('| Iteration | Input | Output | Cache Creation | Cache Read | Total |');
-    lines.push('|-----------|-------|--------|----------------|------------|-------|');
-
-    for (const iter of result.iterations) {
-      if (iter.tokenUsage) {
-        const input = iter.tokenUsage.inputTokens;
-        const output = iter.tokenUsage.outputTokens;
-        const cacheCreation = iter.tokenUsage.cacheCreationInputTokens || 0;
-        const cacheRead = iter.tokenUsage.cacheReadInputTokens || 0;
-        const total = input + output + cacheCreation + cacheRead;
-
-        lines.push(
-          `| ${iter.iterationId} | ${input.toLocaleString()} | ${output.toLocaleString()} | ${cacheCreation.toLocaleString()} | ${cacheRead.toLocaleString()} | ${total.toLocaleString()} |`
-        );
-      }
-    }
+    lines.push(`**Total**: ${total.toLocaleString()} tokens`);
     lines.push('');
   }
 

@@ -308,17 +308,9 @@ async function runSingleIteration(
 
     try {
       console.log(`[Iteration ${context.iteration}] Running prompt: "${config.prompt}" in ${tempDir}...`);
-      const result = query({
-        prompt: config.prompt,
-        options: {
-          cwd: tempDir,
-          settingSources: ['project'],
-          // Bypass permission prompts for file operations
-          permissionMode: 'bypassPermissions',
-          // Instruct Claude to never ask questions and proceed autonomously
-          // This prevents the agent from pausing execution waiting for user input
-          // Note: Users can override this via config.claudeCodeOptions.systemPrompt if needed
-          systemPrompt: `You are running in automated evaluation mode in an isolated sandbox environment.
+
+      // Base system prompt with automation and isolation rules
+      const baseSystemPrompt = `You are running in automated evaluation mode in an isolated sandbox environment.
 
 CRITICAL ISOLATION RULES:
 - Your current working directory (cwd) is: ${tempDir}
@@ -334,9 +326,23 @@ AUTOMATION RULES:
 - Make reasonable decisions independently
 - Complete all tasks without requesting approval or clarification
 
-REMEMBER: You are in a temporary, isolated test directory. All your work stays here.`,
-          // User overrides come last and take precedence
+REMEMBER: You are in a temporary, isolated test directory. All your work stays here.`;
+
+      // Append user's custom system prompt if provided
+      const systemPrompt = config.claudeCodeOptions?.systemPrompt
+        ? `${baseSystemPrompt}\n\n${config.claudeCodeOptions.systemPrompt}`
+        : baseSystemPrompt;
+
+      const result = query({
+        prompt: config.prompt,
+        options: {
+          cwd: tempDir,
+          settingSources: ['project'],
+          // Bypass permission prompts for file operations
+          permissionMode: 'bypassPermissions',
           ...config.claudeCodeOptions,
+          // systemPrompt must come after spread to ensure concatenation works
+          systemPrompt,
         },
       });
 
