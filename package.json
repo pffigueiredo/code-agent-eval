@@ -43,7 +43,7 @@
     "test": "vitest",
     "typecheck": "tsc --noEmit",
     "release": "npm run build && bumpp",
-    "release:alpha": "npm run build && bumpp --preid alpha --prerelease && npm publish"
+    "release:alpha": "npm run build && bumpp --preid alpha --prerelease && npm publish --tag latest"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.1.28",
