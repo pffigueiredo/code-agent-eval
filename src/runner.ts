@@ -444,6 +444,7 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
           workingDir: tempDir,
           diff,
           agentOutput,
+          promptId,
           environmentVariables: envVars,
           execCommand,
         });

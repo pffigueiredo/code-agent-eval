@@ -30,6 +30,7 @@ export interface ScorerContext {
   workingDir: string; // Temp directory where changes were made
   diff: string; // Git diff output
   agentOutput: string; // Raw agent response
+  promptId: string; // Which prompt variant is being evaluated
   environmentVariables?: Record<string, string>; // Env vars used in this iteration
   /** Utility function to execute shell commands and return scored results */
   execCommand: (options: ExecCommandOptions) => Promise<ScorerResult>;
