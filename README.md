@@ -1,8 +1,8 @@
-# cc-eval
+# code-agent-eval
 
-`cc-eval` (Claude Code Eval Library) is a TypeScript library for testing AI integration prompts against real codebases using Claude Code Agent SDK. The library enables developers to validate prompt reliability by running them multiple times, capturing code changes, and scoring outputs using both deterministic (build/test/lint) and LLM-based evaluation patterns.
+`code-agent-eval` is a TypeScript library for evaluating prompts against coding agents (Claude Code, Cursor, etc.). Test prompt reliability by running them multiple times, capturing code changes, and scoring outputs using deterministic (build/test/lint) and LLM-based evaluation patterns.
 
-**Key Principle**: Original codebases remain UNTOUCHED. All Claude Code modifications happen in isolated temporary directories that are created per-iteration and cleaned up afterwards.
+**Key Principle**: Original codebases remain UNTOUCHED. All modifications happen in isolated temporary directories that are created per-iteration and cleaned up afterwards.
 
 ## Features
 
@@ -19,24 +19,24 @@
 ## Installation
 
 ```bash
-npm install cc-eval
+npm install code-agent-eval
 # or
-pnpm add cc-eval
+pnpm add code-agent-eval
 # or
-yarn add cc-eval
+yarn add code-agent-eval
 # or
-bun add cc-eval
+bun add code-agent-eval
 ```
 
 ## Quick Start
 
 ```typescript
-import { runClaudeCodeEval, scorers } from 'cc-eval';
+import { runClaudeCodeEval, scorers } from 'code-agent-eval';
 
 // Sequential execution (default)
 const result = await runClaudeCodeEval({
   name: 'add-feature',
-  prompt: 'Add a health check endpoint',
+  prompts: [{ id: 'v1', prompt: 'Add a health check endpoint' }],
   projectDir: './my-app',
   iterations: 5,
   scorers: [scorers.buildSuccess(), scorers.testSuccess()],
@@ -47,7 +47,7 @@ console.log(`Pass rate: ${result.aggregateScores._overall.passRate * 100}%`);
 // Parallel execution
 const parallelResult = await runClaudeCodeEval({
   name: 'add-feature',
-  prompt: 'Add a health check endpoint',
+  prompts: [{ id: 'v1', prompt: 'Add a health check endpoint' }],
   projectDir: './my-app',
   iterations: 10,
   execution: { mode: 'parallel' }, // Run all 10 iterations concurrently
@@ -57,7 +57,7 @@ const parallelResult = await runClaudeCodeEval({
 // Parallel with controlled concurrency
 const limitedResult = await runClaudeCodeEval({
   name: 'add-feature',
-  prompt: 'Add a health check endpoint',
+  prompts: [{ id: 'v1', prompt: 'Add a health check endpoint' }],
   projectDir: './my-app',
   iterations: 20,
   execution: { mode: 'parallel-limit', concurrency: 3 }, // Max 3 concurrent iterations
@@ -101,7 +101,7 @@ See [CLAUDE.md](./CLAUDE.md) for detailed architecture and development guide.
 ## Requirements
 
 - Node.js 18+
-- `ANTHROPIC_API_KEY` environment variable
+- Claude Code login in the host machine
 
 ## License
 

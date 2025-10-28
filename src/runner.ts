@@ -4,8 +4,20 @@ import fs from 'fs-extra';
 import os from 'os';
 import path from 'path';
 import { randomUUID } from 'crypto';
-import type { EvalResult, Scorer, ScorerResult, TokenUsage, EnvGeneratorContext, IterationResult, AggregateScore, ExecutionConfig } from './types';
-import { generateEnvironmentVariables, validateEnvironmentVariables } from './env-generator';
+import type {
+  EvalResult,
+  Scorer,
+  ScorerResult,
+  TokenUsage,
+  EnvGeneratorContext,
+  IterationResult,
+  AggregateScore,
+  ExecutionConfig,
+} from './types';
+import {
+  generateEnvironmentVariables,
+  validateEnvironmentVariables,
+} from './env-generator';
 import { writeResults } from './results-writer';
 import { buildExecCommand } from './scorers/factories';
 import { detectPackageManager, getInstallCommand } from './package-manager';
@@ -18,10 +30,8 @@ export interface EvalConfig {
   }>;
   projectDir: string; // Path to user's codebase (original, untouched)
 
-  // NEW: Moved iterations into config
   iterations?: number; // Default: 1
 
-  // NEW: Execution control
   execution?: ExecutionConfig; // Default: { mode: 'sequential' }
 
   // Existing fields
@@ -34,7 +44,9 @@ export interface EvalConfig {
   installDependencies?: boolean; // Default: true. Set false to skip package installation
   environmentVariables?:
     | Record<string, string>
-    | ((context: import('./types').EnvGeneratorContext) => Record<string, string> | Promise<Record<string, string>>);
+    | ((
+        context: EnvGeneratorContext
+      ) => Record<string, string> | Promise<Record<string, string>>);
 }
 
 /**
@@ -136,7 +148,9 @@ function formatToolResult(toolName: string, result: any): string {
 
         case 'Grep':
           // Count matches if possible
-          const matches = text.split('\n').filter((l: string) => l.trim()).length;
+          const matches = text
+            .split('\n')
+            .filter((l: string) => l.trim()).length;
           return `  ⎿ Found ${matches} matches`;
 
         case 'Glob':
@@ -145,7 +159,9 @@ function formatToolResult(toolName: string, result: any): string {
 
         case 'Bash':
           if (text.trim()) {
-            return `  ⎿ Output: ${text.substring(0, 50)}${text.length > 50 ? '...' : ''}`;
+            return `  ⎿ Output: ${text.substring(0, 50)}${
+              text.length > 50 ? '...' : ''
+            }`;
           }
           return `  ⎿ Completed`;
 
@@ -174,7 +190,7 @@ function formatMessage(
   const prefix = (text: string): string => {
     if (iterationId === undefined) return text;
     const lines = text.split('\n');
-    return lines.map(line => `[Iteration ${iterationId}] ${line}`).join('\n');
+    return lines.map((line) => `[Iteration ${iterationId}] ${line}`).join('\n');
   };
 
   // Handle assistant messages with tool uses and text
@@ -201,7 +217,11 @@ function formatMessage(
   }
 
   // Handle user messages with tool results (synthetic messages from SDK)
-  if (message.type === 'user' && message.isSynthetic && message.message?.content) {
+  if (
+    message.type === 'user' &&
+    message.isSynthetic &&
+    message.message?.content
+  ) {
     const content = message.message.content;
 
     if (Array.isArray(content)) {
@@ -257,12 +277,17 @@ async function runSingleIteration(
   validateEnvironmentVariables(envVars);
 
   if (config.verbose) {
-    console.log(`\n[Iteration ${context.iteration}] Environment variables:`, envVars);
+    console.log(
+      `\n[Iteration ${context.iteration}] Environment variables:`,
+      envVars
+    );
   }
 
   try {
     // 1. Copy project to temp directory
-    console.log(`[Iteration ${context.iteration}] Copying ${config.projectDir} to ${tempDir}...`);
+    console.log(
+      `[Iteration ${context.iteration}] Copying ${config.projectDir} to ${tempDir}...`
+    );
     await fs.copy(config.projectDir, tempDir, {
       filter: (src) => !src.includes('node_modules'),
     });
@@ -278,24 +303,35 @@ async function runSingleIteration(
     // 2.5. Install dependencies (unless explicitly disabled)
     const shouldInstall = config.installDependencies !== false; // Default to true
     if (shouldInstall) {
-      console.log(`[Iteration ${context.iteration}] Installing dependencies...`);
+      console.log(
+        `[Iteration ${context.iteration}] Installing dependencies...`
+      );
       const packageManager = await detectPackageManager(config.projectDir);
       const installCommand = getInstallCommand(packageManager);
-      console.log(`[Iteration ${context.iteration}] Using ${packageManager} (detected from lock file)`);
+      console.log(
+        `[Iteration ${context.iteration}] Using ${packageManager} (detected from lock file)`
+      );
 
       try {
         await execa(installCommand[0], installCommand.slice(1), {
           cwd: tempDir,
           timeout: 600000, // 10 minute timeout for large projects
         });
-        console.log(`[Iteration ${context.iteration}] Dependencies installed successfully`);
+        console.log(
+          `[Iteration ${context.iteration}] Dependencies installed successfully`
+        );
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error(`[Iteration ${context.iteration}] Failed to install dependencies: ${errorMessage}`);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        console.error(
+          `[Iteration ${context.iteration}] Failed to install dependencies: ${errorMessage}`
+        );
         throw new Error(`Dependency installation failed: ${errorMessage}`);
       }
     } else {
-      console.log(`[Iteration ${context.iteration}] Skipping dependency installation (installDependencies=false)`);
+      console.log(
+        `[Iteration ${context.iteration}] Skipping dependency installation (installDependencies=false)`
+      );
     }
 
     // 3. Create .env file with environment variables (for Claude Code Agent to use)
@@ -312,7 +348,9 @@ async function runSingleIteration(
     Object.assign(process.env, envVars);
 
     try {
-      console.log(`[Iteration ${context.iteration}] Running prompt: "${prompt}" in ${tempDir}...`);
+      console.log(
+        `[Iteration ${context.iteration}] Running prompt: "${prompt}" in ${tempDir}...`
+      );
 
       // Base system prompt with automation and isolation rules
       const baseSystemPrompt = `You are running in automated evaluation mode in an isolated sandbox environment.
@@ -371,9 +409,18 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
 
         // Log messages based on verbose setting
         if (config.verbose) {
-          console.log(`\n[Iteration ${context.iteration}] [Claude Code]`, message.type, ':', JSON.stringify(message, null, 2));
+          console.log(
+            `\n[Iteration ${context.iteration}] [Claude Code]`,
+            message.type,
+            ':',
+            JSON.stringify(message, null, 2)
+          );
         } else {
-          const formatted = formatMessage(message, pendingToolUses, context.iteration);
+          const formatted = formatMessage(
+            message,
+            pendingToolUses,
+            context.iteration
+          );
           if (formatted) {
             console.log(formatted);
           }
@@ -401,7 +448,11 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
           execCommand,
         });
         scores[scorer.name] = result;
-        console.log(`[Iteration ${context.iteration}]   ${scorer.name}: ${result.score.toFixed(2)} - ${result.reason}`);
+        console.log(
+          `[Iteration ${context.iteration}]   ${
+            scorer.name
+          }: ${result.score.toFixed(2)} - ${result.reason}`
+        );
       }
 
       const duration = Date.now() - startTime;
@@ -438,10 +489,14 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
   } finally {
     // 7. Cleanup (unless keepTempDir option is set)
     if (!config.keepTempDir) {
-      console.log(`[Iteration ${context.iteration}] Cleaning up temp directory...`);
+      console.log(
+        `[Iteration ${context.iteration}] Cleaning up temp directory...`
+      );
       await fs.remove(tempDir);
     } else {
-      console.log(`[Iteration ${context.iteration}] Temp directory preserved at ${tempDir}`);
+      console.log(
+        `[Iteration ${context.iteration}] Temp directory preserved at ${tempDir}`
+      );
     }
   }
 }
@@ -465,7 +520,7 @@ function calculateAggregateScores(
   // Calculate aggregates for each scorer
   for (const scorerName of scorerNames) {
     const scores = results
-      .map(r => r.scores[scorerName]?.score)
+      .map((r) => r.scores[scorerName]?.score)
       .filter((s): s is number => s !== undefined);
 
     if (scores.length === 0) continue;
@@ -473,15 +528,18 @@ function calculateAggregateScores(
     const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
     const min = Math.min(...scores);
     const max = Math.max(...scores);
-    const variance = scores.reduce((acc, score) => acc + Math.pow(score - mean, 2), 0) / scores.length;
+    const variance =
+      scores.reduce((acc, score) => acc + Math.pow(score - mean, 2), 0) /
+      scores.length;
     const stdDev = Math.sqrt(variance);
-    const passRate = scores.filter(s => s >= 1.0).length / scores.length;
+    const passRate = scores.filter((s) => s >= 1.0).length / scores.length;
 
     aggregates[scorerName] = { mean, min, max, stdDev, passRate };
   }
 
   // Overall pass rate (all scorers passed)
-  const overallPassRate = results.filter(r => r.success).length / results.length;
+  const overallPassRate =
+    results.filter((r) => r.success).length / results.length;
   aggregates._overall = {
     mean: overallPassRate,
     min: overallPassRate,
@@ -503,13 +561,17 @@ async function runSequential(
   const results: IterationResult[] = [];
 
   // Generate all combinations: prompts × iterations
-  const combinations: Array<{promptId: string, prompt: string, iteration: number}> = [];
+  const combinations: Array<{
+    promptId: string;
+    prompt: string;
+    iteration: number;
+  }> = [];
   for (const promptConfig of config.prompts) {
     for (let i = 0; i < iterations; i++) {
       combinations.push({
         promptId: promptConfig.id,
         prompt: promptConfig.prompt,
-        iteration: results.length + combinations.length
+        iteration: results.length + combinations.length,
       });
     }
   }
@@ -523,11 +585,20 @@ async function runSequential(
       totalIterations: combinations.length,
     };
 
-    const result = await runSingleIteration(config, context, combo.promptId, combo.prompt);
+    const result = await runSingleIteration(
+      config,
+      context,
+      combo.promptId,
+      combo.prompt
+    );
     results.push(result);
 
     // Print iteration summary
-    console.log(`\n[Prompt: ${combo.promptId}] [Iteration ${combo.iteration}] ${result.success ? '✓ PASSED' : '✗ FAILED'} in ${(result.duration / 1000).toFixed(2)}s`);
+    console.log(
+      `\n[Prompt: ${combo.promptId}] [Iteration ${combo.iteration}] ${
+        result.success ? '✓ PASSED' : '✗ FAILED'
+      } in ${(result.duration / 1000).toFixed(2)}s`
+    );
   }
 
   return results;
@@ -542,22 +613,28 @@ async function runParallel(
   iterations: number
 ): Promise<IterationResult[]> {
   // Generate all combinations: prompts × iterations
-  const combinations: Array<{promptId: string, prompt: string, iteration: number}> = [];
+  const combinations: Array<{
+    promptId: string;
+    prompt: string;
+    iteration: number;
+  }> = [];
   let iterationCounter = 0;
   for (const promptConfig of config.prompts) {
     for (let i = 0; i < iterations; i++) {
       combinations.push({
         promptId: promptConfig.id,
         prompt: promptConfig.prompt,
-        iteration: iterationCounter++
+        iteration: iterationCounter++,
       });
     }
   }
 
-  console.log(`Running ${combinations.length} total runs (${config.prompts.length} prompts × ${iterations} iterations) in parallel (unbounded)...`);
+  console.log(
+    `Running ${combinations.length} total runs (${config.prompts.length} prompts × ${iterations} iterations) in parallel (unbounded)...`
+  );
 
   // Create all promises and run in parallel
-  const promises = combinations.map(combo => {
+  const promises = combinations.map((combo) => {
     const context: EnvGeneratorContext = {
       iteration: combo.iteration,
       promptId: combo.promptId,
@@ -565,8 +642,17 @@ async function runParallel(
       totalIterations: combinations.length,
     };
 
-    return runSingleIteration(config, context, combo.promptId, combo.prompt).then(result => {
-      console.log(`\n[Prompt: ${combo.promptId}] [Iteration ${combo.iteration}] ${result.success ? '✓ PASSED' : '✗ FAILED'} in ${(result.duration / 1000).toFixed(2)}s`);
+    return runSingleIteration(
+      config,
+      context,
+      combo.promptId,
+      combo.prompt
+    ).then((result) => {
+      console.log(
+        `\n[Prompt: ${combo.promptId}] [Iteration ${combo.iteration}] ${
+          result.success ? '✓ PASSED' : '✗ FAILED'
+        } in ${(result.duration / 1000).toFixed(2)}s`
+      );
       return result;
     });
   });
@@ -586,7 +672,7 @@ async function pLimit<T>(
   const executing: Promise<void>[] = [];
 
   for (const [index, task] of tasks.entries()) {
-    const p = task().then(result => {
+    const p = task().then((result) => {
       results[index] = result;
       executing.splice(executing.indexOf(p), 1);
     });
@@ -611,22 +697,28 @@ async function runParallelWithLimit(
   concurrency: number
 ): Promise<IterationResult[]> {
   // Generate all combinations
-  const combinations: Array<{promptId: string, prompt: string, iteration: number}> = [];
+  const combinations: Array<{
+    promptId: string;
+    prompt: string;
+    iteration: number;
+  }> = [];
   let iterationCounter = 0;
   for (const promptConfig of config.prompts) {
     for (let i = 0; i < iterations; i++) {
       combinations.push({
         promptId: promptConfig.id,
         prompt: promptConfig.prompt,
-        iteration: iterationCounter++
+        iteration: iterationCounter++,
       });
     }
   }
 
-  console.log(`Running ${combinations.length} total runs (${config.prompts.length} prompts × ${iterations} iterations) in parallel (concurrency: ${concurrency})...`);
+  console.log(
+    `Running ${combinations.length} total runs (${config.prompts.length} prompts × ${iterations} iterations) in parallel (concurrency: ${concurrency})...`
+  );
 
   // Create task functions
-  const tasks = combinations.map(combo => {
+  const tasks = combinations.map((combo) => {
     return async () => {
       const context: EnvGeneratorContext = {
         iteration: combo.iteration,
@@ -635,8 +727,17 @@ async function runParallelWithLimit(
         totalIterations: combinations.length,
       };
 
-      const result = await runSingleIteration(config, context, combo.promptId, combo.prompt);
-      console.log(`\n[Prompt: ${combo.promptId}] [Iteration ${combo.iteration}] ${result.success ? '✓ PASSED' : '✗ FAILED'} in ${(result.duration / 1000).toFixed(2)}s`);
+      const result = await runSingleIteration(
+        config,
+        context,
+        combo.promptId,
+        combo.prompt
+      );
+      console.log(
+        `\n[Prompt: ${combo.promptId}] [Iteration ${combo.iteration}] ${
+          result.success ? '✓ PASSED' : '✗ FAILED'
+        } in ${(result.duration / 1000).toFixed(2)}s`
+      );
       return result;
     };
   });
@@ -646,7 +747,7 @@ async function runParallelWithLimit(
 }
 
 /**
- * Main entry point: Runs evaluation with multiple iterations
+ * Main entry point: Runs evaluation with multiple iterations using Claude Code agent
  */
 export async function runClaudeCodeEval(
   config: EvalConfig
@@ -664,7 +765,9 @@ export async function runClaudeCodeEval(
   }
 
   const totalRuns = config.prompts.length * iterations;
-  console.log(`\nStarting evaluation "${config.name}" with ${config.prompts.length} prompt(s) × ${iterations} iteration(s) = ${totalRuns} total runs (${execution.mode})...\n`);
+  console.log(
+    `\nStarting evaluation "${config.name}" with ${config.prompts.length} prompt(s) × ${iterations} iteration(s) = ${totalRuns} total runs (${execution.mode})...\n`
+  );
 
   let results: IterationResult[];
 
@@ -676,7 +779,11 @@ export async function runClaudeCodeEval(
       results = await runParallel(config, iterations);
       break;
     case 'parallel-limit':
-      results = await runParallelWithLimit(config, iterations, execution.concurrency!);
+      results = await runParallelWithLimit(
+        config,
+        iterations,
+        execution.concurrency!
+      );
       break;
   }
 
@@ -685,7 +792,7 @@ export async function runClaudeCodeEval(
 
   // Print comprehensive summary
   const duration = Date.now() - startTime;
-  const overallSuccess = results.every(r => r.success);
+  const overallSuccess = results.every((r) => r.success);
 
   console.log('\n' + '='.repeat(60));
   console.log('EVALUATION SUMMARY');
@@ -695,16 +802,27 @@ export async function runClaudeCodeEval(
   console.log(`Prompts: ${config.prompts.length}`);
   console.log(`Iterations per prompt: ${iterations}`);
   console.log(`Total runs: ${results.length}`);
-  console.log(`Pass Rate: ${(aggregateScores._overall.passRate * 100).toFixed(1)}%`);
+  console.log(
+    `Pass Rate: ${(aggregateScores._overall.passRate * 100).toFixed(1)}%`
+  );
   console.log(`Status: ${overallSuccess ? '✓ ALL PASSED' : '✗ SOME FAILED'}`);
 
   // Show per-prompt pass rates
   if (config.prompts.length > 1) {
     console.log('\nPer-Prompt Results:');
     for (const promptConfig of config.prompts) {
-      const promptResults = results.filter(r => r.promptId === promptConfig.id);
-      const promptPassRate = promptResults.filter(r => r.success).length / promptResults.length;
-      console.log(`  ${promptConfig.id}: ${(promptPassRate * 100).toFixed(1)}% pass rate (${promptResults.filter(r => r.success).length}/${promptResults.length})`);
+      const promptResults = results.filter(
+        (r) => r.promptId === promptConfig.id
+      );
+      const promptPassRate =
+        promptResults.filter((r) => r.success).length / promptResults.length;
+      console.log(
+        `  ${promptConfig.id}: ${(promptPassRate * 100).toFixed(
+          1
+        )}% pass rate (${promptResults.filter((r) => r.success).length}/${
+          promptResults.length
+        })`
+      );
     }
   }
 
@@ -714,34 +832,56 @@ export async function runClaudeCodeEval(
     for (const [name, agg] of Object.entries(aggregateScores)) {
       if (name === '_overall') continue;
       console.log(`  ${name}:`);
-      console.log(`    Mean: ${agg.mean.toFixed(2)} | Min: ${agg.min.toFixed(2)} | Max: ${agg.max.toFixed(2)} | StdDev: ${agg.stdDev.toFixed(2)}`);
+      console.log(
+        `    Mean: ${agg.mean.toFixed(2)} | Min: ${agg.min.toFixed(
+          2
+        )} | Max: ${agg.max.toFixed(2)} | StdDev: ${agg.stdDev.toFixed(2)}`
+      );
       console.log(`    Pass Rate: ${(agg.passRate * 100).toFixed(1)}%`);
     }
   }
 
   // Display total token usage
-  const totalTokenUsage = results.reduce((acc, r) => {
-    if (r.tokenUsage) {
-      acc.inputTokens += r.tokenUsage.inputTokens;
-      acc.outputTokens += r.tokenUsage.outputTokens;
-      acc.cacheCreationInputTokens += r.tokenUsage.cacheCreationInputTokens || 0;
-      acc.cacheReadInputTokens += r.tokenUsage.cacheReadInputTokens || 0;
+  const totalTokenUsage = results.reduce(
+    (acc, r) => {
+      if (r.tokenUsage) {
+        acc.inputTokens += r.tokenUsage.inputTokens;
+        acc.outputTokens += r.tokenUsage.outputTokens;
+        acc.cacheCreationInputTokens +=
+          r.tokenUsage.cacheCreationInputTokens || 0;
+        acc.cacheReadInputTokens += r.tokenUsage.cacheReadInputTokens || 0;
+      }
+      return acc;
+    },
+    {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheCreationInputTokens: 0,
+      cacheReadInputTokens: 0,
     }
-    return acc;
-  }, { inputTokens: 0, outputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 });
+  );
 
   if (totalTokenUsage.inputTokens > 0) {
-    const totalInput = totalTokenUsage.inputTokens +
+    const totalInput =
+      totalTokenUsage.inputTokens +
       totalTokenUsage.cacheCreationInputTokens +
       totalTokenUsage.cacheReadInputTokens;
     console.log('\nTotal Token Usage:');
     console.log(`  Input tokens: ${totalInput.toLocaleString()}`);
-    console.log(`  Output tokens: ${totalTokenUsage.outputTokens.toLocaleString()}`);
-    console.log(`  Total: ${(totalInput + totalTokenUsage.outputTokens).toLocaleString()} tokens`);
+    console.log(
+      `  Output tokens: ${totalTokenUsage.outputTokens.toLocaleString()}`
+    );
+    console.log(
+      `  Total: ${(
+        totalInput + totalTokenUsage.outputTokens
+      ).toLocaleString()} tokens`
+    );
   }
 
   // Display preserved temp directories
-  const preservedDirs = results.filter(r => r.workingDir).map(r => r.workingDir!);
+  const preservedDirs = results
+    .filter((r) => r.workingDir)
+    .map((r) => r.workingDir!);
   if (preservedDirs.length > 0) {
     console.log('\nPreserved Temp Directories:');
     preservedDirs.forEach((dir, index) => {
@@ -770,7 +910,10 @@ export async function runClaudeCodeEval(
       console.log(`  - Aggregate results: results.md`);
       console.log(`  - Iteration logs: iteration-*.log\n`);
     } catch (error) {
-      console.error('Failed to write results:', error instanceof Error ? error.message : String(error));
+      console.error(
+        'Failed to write results:',
+        error instanceof Error ? error.message : String(error)
+      );
     }
   }
 

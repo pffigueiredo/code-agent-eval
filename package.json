@@ -1,21 +1,23 @@
 {
-  "name": "cc-eval",
-  "version": "0.2.0",
-  "description": "TypeScript library for evaluating Claude Code prompts against real codebases with multi-iteration testing and scoring",
+  "name": "code-agent-eval",
+  "version": "0.0.1",
+  "description": "TypeScript library for evaluating prompts against coding agents (Claude Code, Cursor, etc.) with multi-iteration testing and scoring",
   "type": "module",
   "license": "MIT",
-  "homepage": "https://github.com/pffigueiredo/cc-eval#readme",
+  "homepage": "https://github.com/pffigueiredo/code-agent-eval#readme",
   "bugs": {
-    "url": "https://github.com/pffigueiredo/cc-eval/issues"
+    "url": "https://github.com/pffigueiredo/code-agent-eval/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/pffigueiredo/cc-eval.git"
+    "url": "git+https://github.com/pffigueiredo/code-agent-eval.git"
   },
   "author": "Pedro Figueiredo",
   "keywords": [
-    "claude",
+    "code-agent",
+    "coding-assistant",
     "claude-code",
+    "cursor",
     "evaluation",
     "testing",
     "ai",
@@ -42,17 +44,17 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.1.0",
-    "execa": "^6.1.0",
-    "fs-extra": "^11.2.0",
-    "zod": "^3.23.0"
+    "@anthropic-ai/claude-agent-sdk": "0.1.28",
+    "execa": "9.6.0",
+    "fs-extra": "11.2.0",
+    "zod": "4.1.12"
   },
   "devDependencies": {
-    "@types/fs-extra": "^11.0.4",
-    "@types/node": "^24.9.1",
-    "bumpp": "^10.3.1",
-    "tsdown": "^0.15.9",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.1"
+    "@types/fs-extra": "11.0.4",
+    "@types/node": "24.9.1",
+    "bumpp": "10.3.1",
+    "typescript": "5.9.3",
+    "tsdown": "0.15.9",
+    "vitest": "4.0.1"
   }
 }

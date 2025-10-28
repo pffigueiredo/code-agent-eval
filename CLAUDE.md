@@ -4,7 +4,7 @@ In all interactions and commit messages, be extremely concise and sacrifice on g
 
 ## Project Overview
 
-`cc-eval` is a TypeScript library for evaluating Claude Code prompts against real codebases. Run prompts multiple times, capture changes, score outputs using deterministic and LLM-based scorers.
+`code-agent-eval` is a TypeScript library for evaluating prompts against coding agents (Claude Code, Cursor, etc.). Run prompts multiple times, capture changes, score outputs using deterministic and LLM-based scorers.
 
 **Core Principle**: Original codebases stay untouched. All modifications happen in isolated temp directories.
 
@@ -31,7 +31,7 @@ npx tsx examples/plugin-execution.ts
 **Core Workflow**:
 1. Copy project → isolated temp dir (`/tmp/eval-{uuid}`)
 2. Auto-install deps (npm/yarn/pnpm/bun detected from lock files)
-3. Run Claude Code Agent SDK with prompt
+3. Run coding agent (currently Claude Agent SDK) with prompt
 4. Capture git diff of changes
 5. Score results (deterministic + LLM scorers)
 6. Cleanup temp dir (unless `keepTempDir: true`)
@@ -47,7 +47,7 @@ npx tsx examples/plugin-execution.ts
 ## Public API (`src/index.ts`)
 
 Exports:
-- `runClaudeCodeEval()` - main runner
+- `runClaudeCodeEval()` - main runner (Claude Code agent)
 - `scorers` namespace - includes `createScorer()` factory + pre-built scorers
 - All types from `types.ts`
 - Utils: `generateEnvironmentVariables`, `validateEnvironmentVariables`, `detectPackageManager`, `getInstallCommand`, `writeResults`, `formatResultsAsMarkdown`
@@ -71,7 +71,7 @@ Exports:
   resultsDir?: string;                 // Optional: export results to dir
   installDependencies?: boolean;       // Default: true
   environmentVariables?: Record<string, string> | (context) => Record<string, string> | Promise<...>;
-  claudeCodeOptions?: {...};           // Override SDK options
+  agentOptions?: {...};                // Override SDK options
 }
 ```
 
@@ -88,7 +88,7 @@ Use single `createScorer()` factory. Scorers receive `ScorerContext` with `execC
 
 **Command-based scorer**:
 ```typescript
-import { createScorer } from 'cc-eval';
+import { createScorer } from 'code-agent-eval';
 
 const typecheck = createScorer('typecheck', ({ execCommand }) =>
   execCommand({
@@ -133,7 +133,7 @@ Set `resultsDir` in config to auto-export results:
 ```typescript
 const result = await runClaudeCodeEval({
   name: 'add-feature',
-  prompt: 'Add health check endpoint',
+  prompts: [{ id: 'v1', prompt: 'Add health check endpoint' }],
   projectDir: './my-app',
   iterations: 10,
   scorers: [scorers.buildSuccess(), scorers.testSuccess()],
@@ -152,24 +152,24 @@ eval-results/add-feature-2025-01-15-143022/
 
 Manual export:
 ```typescript
-import { formatResultsAsMarkdown, writeResults } from 'cc-eval';
+import { formatResultsAsMarkdown, writeResults } from 'code-agent-eval';
 
 const markdown = formatResultsAsMarkdown(result);
 const dirPath = await writeResults(result, './custom-dir');
 ```
 
-## Claude Code Agent SDK Integration
+## Agent SDK Integration
 
-Uses `@anthropic-ai/claude-agent-sdk`:
+Currently uses `@anthropic-ai/claude-agent-sdk`:
 - `query()` function returns async generator
 - Pre-built agent loop with file tools
 - Auto-handles tool calls (read/write/edit)
 
 **Automated eval mode**:
 - `permissionMode: 'bypassPermissions'` - auto-approves all file ops
-- Special system prompt - instructs Claude to never ask questions, make all decisions independently
+- Special system prompt - instructs agent to never ask questions, make all decisions independently
 - Safe because runs in isolated temp dirs
-- Override via `claudeCodeOptions` if needed
+- Override via `agentOptions` if needed
 
 ## Temp Directory Isolation
 
@@ -187,7 +187,7 @@ Plugins allowed but constrained via system prompt:
 - Never navigate outside working directory
 - Treat plugin-provided absolute paths as metadata-only (not for writing)
 - Ensures all file mods stay in temp dir
-- Pass plugins via `claudeCodeOptions.plugins` to test plugin workflows
+- Pass plugins via `agentOptions.plugins` to test plugin workflows
 
 ## Testing
 
@@ -207,10 +207,10 @@ Plugins allowed but constrained via system prompt:
 
 ## Environment Variables
 
-- `ANTHROPIC_API_KEY` - Required for Claude Code Agent SDK
+- `ANTHROPIC_API_KEY` - Required for Claude Agent SDK
 
 ## References
 
-- PRD: `cc-eval-prd.md`
+- PRD: `code-agent-eval-prd.md`
 - Changelog: `CHANGELOG.md`
 - Claude Agent SDK: https://docs.claude.com/en/api/agent-sdk/typescript
