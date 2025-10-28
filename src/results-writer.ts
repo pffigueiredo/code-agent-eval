@@ -31,6 +31,7 @@ function formatIterationLog(iteration: IterationResult): string {
 
   // Header
   lines.push(`Iteration ${iteration.iterationId}`);
+  lines.push(`Prompt ID: ${iteration.promptId}`);
   lines.push('='.repeat(60));
   lines.push(`Status: ${iteration.success ? '✓ PASS' : '✗ FAIL'}`);
   lines.push(`Duration: ${(iteration.duration / 1000).toFixed(2)}s`);
@@ -131,7 +132,7 @@ export function formatResultsAsMarkdown(result: EvalResult): string {
   lines.push('');
   lines.push(`- **Date**: ${new Date(result.timestamp).toLocaleString()}`);
   lines.push(`- **Duration**: ${(result.duration / 1000).toFixed(2)}s`);
-  lines.push(`- **Iterations**: ${result.iterations.length}`);
+  lines.push(`- **Total Runs**: ${result.iterations.length}`);
   lines.push(`- **Overall Status**: ${result.success ? '✓ PASSED' : '✗ FAILED'}`);
   if (result.aggregateScores._overall) {
     lines.push(`- **Pass Rate**: ${(result.aggregateScores._overall.passRate * 100).toFixed(1)}%`);
@@ -140,6 +141,19 @@ export function formatResultsAsMarkdown(result: EvalResult): string {
     lines.push(`- **Error**: ${result.error}`);
   }
   lines.push('');
+
+  // Per-prompt summary
+  const promptIds = [...new Set(result.iterations.map(i => i.promptId))];
+  if (promptIds.length > 1) {
+    lines.push('## Prompts Tested');
+    lines.push('');
+    for (const promptId of promptIds) {
+      const promptResults = result.iterations.filter(i => i.promptId === promptId);
+      const passRate = promptResults.filter(r => r.success).length / promptResults.length;
+      lines.push(`- **${promptId}**: ${(passRate * 100).toFixed(1)}% pass rate (${promptResults.length} runs)`);
+    }
+    lines.push('');
+  }
 
   // Aggregate scores table (exclude _overall)
   const scorerNames = Object.keys(result.aggregateScores).filter(name => name !== '_overall');
@@ -173,8 +187,8 @@ export function formatResultsAsMarkdown(result: EvalResult): string {
     const sortedScorerNames = Array.from(allScorerNames).sort();
 
     // Build table header
-    const header = ['| Iteration | Status | Duration (s) | ' + sortedScorerNames.join(' | ') + ' |'];
-    const separator = ['|-----------|--------|--------------|' + sortedScorerNames.map(() => '------').join('|') + '|'];
+    const header = ['| Iteration | Prompt ID | Status | Duration (s) | ' + sortedScorerNames.join(' | ') + ' |'];
+    const separator = ['|-----------|-----------|--------|--------------|' + sortedScorerNames.map(() => '------').join('|') + '|'];
     lines.push(header.join(''));
     lines.push(separator.join(''));
 
@@ -190,7 +204,7 @@ export function formatResultsAsMarkdown(result: EvalResult): string {
         return 'N/A';
       });
 
-      lines.push(`| ${iter.iterationId} | ${status} | ${duration} | ${scores.join(' | ')} |`);
+      lines.push(`| ${iter.iterationId} | ${iter.promptId} | ${status} | ${duration} | ${scores.join(' | ')} |`);
     }
     lines.push('');
 
@@ -268,7 +282,7 @@ export async function writeResults(
   // Write per-iteration logs
   for (const iteration of result.iterations) {
     const logContent = formatIterationLog(iteration);
-    const logFilename = `iteration-${iteration.iterationId}.log`;
+    const logFilename = `iteration-${iteration.promptId}-${iteration.iterationId}.log`;
     await fs.writeFile(path.join(dirPath, logFilename), logContent, 'utf-8');
   }
 

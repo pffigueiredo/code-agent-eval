@@ -6,7 +6,12 @@ async function main() {
 
   const baseConfig: EvalConfig = {
     name: 'add-neon-drizzle-to-project',
-    prompt: 'I want to to build a todo application with neon and drizzle.',
+    prompts: [
+      {
+        id: 'default',
+        prompt: 'I want to to build a todo application with neon and drizzle.',
+      },
+    ],
     projectDir:
       '/Users/pedro.figueiredo/Documents/git/personal/test-plugin-next',
     iterations: 5,

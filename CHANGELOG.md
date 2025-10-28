@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2025-10-28
+
+### Breaking Changes
+
+- **Multi-Prompt API**: `prompt: string` replaced with `prompts: Array<{id, prompt}>`
+  - All eval configs now use `prompts` array instead of single `prompt` field
+  - Single-prompt evaluations now use array of 1: `prompts: [{id: 'default', prompt: '...'}]`
+  - Enables testing multiple prompt variants in parallel
+  - Updates all examples, tests, and documentation
+
+### Added
+
+- **Multi-Prompt Parallel Execution**: Run multiple prompt variants simultaneously
+  - Each prompt runs N iterations in parallel (fully concurrent: prompts × iterations)
+  - Per-prompt pass rates displayed in console output and exported results
+  - Prompt IDs included in iteration logs and markdown exports
+  - New example: `examples/multi-prompt-parallel.ts` demonstrating 3 prompts × 3 iterations
+- **Enhanced Results Export**:
+  - Per-prompt statistics in markdown reports
+  - Prompt ID column in iteration tables
+  - Log filenames include prompt IDs: `iteration-{promptId}-{iterationId}.log`
+- **Updated Types**:
+  - `IterationResult` includes `promptId` field
+  - `EnvGeneratorContext` includes `promptId` field for dynamic env generation
+
+### Changed
+
+- **Console Output**: Shows per-prompt pass rates when multiple prompts used
+- **Result Aggregation**: Aggregates scores across all prompts and iterations
+- **Validation**: Now requires at least one prompt in `prompts` array
+
+### Migration
+
+```typescript
+// v0.2.0
+{
+  prompt: 'Add feature...'
+}
+
+// v2.0.0
+{
+  prompts: [{
+    id: 'default',
+    prompt: 'Add feature...'
+  }]
+}
+
+// Multi-prompt usage (NEW)
+{
+  prompts: [
+    { id: 'variant-1', prompt: '...' },
+    { id: 'variant-2', prompt: '...' }
+  ],
+  iterations: 5,  // Each prompt runs 5 times
+  execution: { mode: 'parallel' }  // All 10 runs concurrent
+}
+```
+
 ## [0.2.0] - 2025-10-27
 
 ### Breaking Changes

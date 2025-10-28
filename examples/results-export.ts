@@ -7,7 +7,12 @@ async function main() {
   // Run an evaluation with results exported to markdown
   const result = await runClaudeCodeEval({
     name: 'add-health-endpoint',
-    prompt: 'Add a health check endpoint that returns the server status',
+    prompts: [
+      {
+        id: 'default',
+        prompt: 'Add a health check endpoint that returns the server status',
+      },
+    ],
     projectDir: './test-project',
     iterations: 5,
     execution: {

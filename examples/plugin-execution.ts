@@ -6,10 +6,19 @@ async function main() {
 
   const baseConfig: EvalConfig = {
     name: 'check-add-neon-docs-skill-used',
-    prompt: 'Add docs about neon and drizzle.',
+    prompts: [
+      {
+        id: 'neon-drizzle-docs',
+        prompt: 'Add docs about neon and drizzle.',
+      },
+      {
+        id: 'neon-drizzle-best-practices',
+        prompt: 'Add best practices docs about neon and drizzle.',
+      },
+    ],
     projectDir:
       '/Users/pedro.figueiredo/Documents/git/personal/todo-guardian-pro-supabasejs',
-    iterations: 30,
+    iterations: 2,
     scorers: [
       scorers.buildSuccess(),
       scorers.createScorer(

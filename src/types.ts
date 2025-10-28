@@ -50,12 +50,14 @@ export interface TokenUsage {
 
 export interface EnvGeneratorContext {
   iteration: number; // 0-based iteration index
+  promptId: string; // Which prompt variant is being run
   evalName: string; // Name of the eval
   totalIterations?: number; // Total number of iterations
 }
 
 export interface IterationResult {
   iterationId: number;
+  promptId: string; // Which prompt variant was used
   success: boolean;
   duration: number;
   scores: Record<string, ScorerResult>;

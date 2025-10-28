@@ -21,6 +21,7 @@ npm run typecheck    # Type checking
 npx tsx examples/phase1-single-run.ts
 npx tsx examples/phase2-multi-iteration.ts
 npx tsx examples/parallel-execution.ts
+npx tsx examples/multi-prompt-parallel.ts  # NEW: Multi-prompt example
 npx tsx examples/results-export.ts
 npx tsx examples/plugin-execution.ts
 ```
@@ -56,9 +57,12 @@ Exports:
 ```typescript
 {
   name: string;                        // Eval name
-  prompt: string;                      // Prompt for agent
+  prompts: Array<{                     // Array of prompt variants
+    id: string;                        // Unique identifier
+    prompt: string;                    // Prompt text
+  }>;
   projectDir: string;                  // Source project path
-  iterations?: number;                 // Default: 1
+  iterations?: number;                 // Default: 1 (per prompt)
   execution?: ExecutionConfig;         // Default: { mode: 'sequential' }
   timeout?: number;                    // Default: 5 min
   scorers?: Scorer[];                  // Default: []
@@ -70,6 +74,8 @@ Exports:
   claudeCodeOptions?: {...};           // Override SDK options
 }
 ```
+
+**Breaking Change (v2.0)**: `prompt: string` replaced with `prompts: Array<{id, prompt}>`. Single-prompt evals now use array of 1.
 
 **Execution modes**:
 - `sequential`: One at a time (default)
@@ -196,7 +202,7 @@ Plugins allowed but constrained via system prompt:
 
 - ✅ Phase 1: Single eval runner + deterministic scorers
 - ✅ Phase 2: Multi-iteration + aggregated scoring + parallel execution + results export
-- ⏳ Phase 3: A/B testing multiple prompts
+- ✅ Phase 3: Multi-prompt parallel execution (v2.0)
 - ⏳ Phase 4: LLM judges
 
 ## Environment Variables

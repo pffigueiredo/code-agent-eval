@@ -6,7 +6,12 @@ async function main() {
   // Example 1: Static environment variables (sequential, default)
   const result1 = await runClaudeCodeEval({
     name: 'static-env-vars',
-    prompt: 'Add a health check endpoint that returns the current NODE_ENV',
+    prompts: [
+      {
+        id: 'default',
+        prompt: 'Add a health check endpoint that returns the current NODE_ENV',
+      },
+    ],
     projectDir: './test-project',
     iterations: 3,
     environmentVariables: {
@@ -22,7 +27,12 @@ async function main() {
   // Example 2: Dynamic environment variables
   const result2 = await runClaudeCodeEval({
     name: 'dynamic-env-vars',
-    prompt: 'Create a database migration for users table',
+    prompts: [
+      {
+        id: 'default',
+        prompt: 'Create a database migration for users table',
+      },
+    ],
     projectDir: './test-project',
     iterations: 5,
     environmentVariables: (context) => ({
@@ -40,7 +50,12 @@ async function main() {
   // Example 3: Async environment variable generation
   const result3 = await runClaudeCodeEval({
     name: 'async-env-generation',
-    prompt: 'Add authentication using the provided API key',
+    prompts: [
+      {
+        id: 'default',
+        prompt: 'Add authentication using the provided API key',
+      },
+    ],
     projectDir: './test-project',
     iterations: 3,
     environmentVariables: async (context) => {

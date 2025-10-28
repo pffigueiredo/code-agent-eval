@@ -5,8 +5,13 @@ async function main() {
 
   const baseConfig: EvalConfig = {
     name: 'parallel-migrate-supabasejs-to-neonjs',
-    prompt:
-      'Based on https://registry.npmjs.org/@neondatabase/neon-js migrate from SupabaseJS to NeonJS.',
+    prompts: [
+      {
+        id: 'default',
+        prompt:
+          'Based on https://registry.npmjs.org/@neondatabase/neon-js migrate from SupabaseJS to NeonJS.',
+      },
+    ],
     projectDir:
       '/Users/pedro.figueiredo/Documents/git/personal/todo-guardian-pro-supabasejs',
     iterations: 3,

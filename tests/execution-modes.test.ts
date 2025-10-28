@@ -6,7 +6,7 @@ describe('Execution Modes', () => {
     await expect(
       runClaudeCodeEval({
         name: 'test',
-        prompt: 'test',
+        prompts: [{ id: 'default', prompt: 'test' }],
         projectDir: '.',
         iterations: 2,
         execution: { mode: 'parallel-limit' }, // Missing concurrency
@@ -17,7 +17,7 @@ describe('Execution Modes', () => {
   it('defaults to sequential mode when execution not specified', async () => {
     const config: EvalConfig = {
       name: 'test',
-      prompt: 'test',
+      prompts: [{ id: 'default', prompt: 'test' }],
       projectDir: '.',
       iterations: 1,
     };
@@ -30,7 +30,7 @@ describe('Execution Modes', () => {
     expect(() => {
       const config = {
         name: 'test',
-        prompt: 'test',
+        prompts: [{ id: 'default', prompt: 'test' }],
         projectDir: '.',
         iterations: 1,
         execution: { mode: 'sequential' as const },
@@ -43,7 +43,7 @@ describe('Execution Modes', () => {
     expect(() => {
       const config = {
         name: 'test',
-        prompt: 'test',
+        prompts: [{ id: 'default', prompt: 'test' }],
         projectDir: '.',
         iterations: 1,
         execution: { mode: 'parallel' as const },
@@ -56,7 +56,7 @@ describe('Execution Modes', () => {
     expect(() => {
       const config = {
         name: 'test',
-        prompt: 'test',
+        prompts: [{ id: 'default', prompt: 'test' }],
         projectDir: '.',
         iterations: 1,
         execution: { mode: 'parallel-limit' as const, concurrency: 3 },

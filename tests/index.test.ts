@@ -6,7 +6,7 @@ describe('Type Exports', () => {
     // Verify that types can be imported
     const config: EvalConfig = {
       name: 'test',
-      prompt: 'test prompt',
+      prompts: [{ id: 'default', prompt: 'test prompt' }],
       projectDir: '/tmp/test',
     };
 
@@ -26,7 +26,7 @@ describe('Type Exports', () => {
   test('EvalConfig includes iterations field', () => {
     const config: EvalConfig = {
       name: 'test',
-      prompt: 'test',
+      prompts: [{ id: 'default', prompt: 'test' }],
       projectDir: '.',
       iterations: 3,
     };
@@ -36,7 +36,7 @@ describe('Type Exports', () => {
   test('EvalConfig includes execution field', () => {
     const config: EvalConfig = {
       name: 'test',
-      prompt: 'test',
+      prompts: [{ id: 'default', prompt: 'test' }],
       projectDir: '.',
       iterations: 5,
       execution: { mode: 'parallel-limit', concurrency: 3 },

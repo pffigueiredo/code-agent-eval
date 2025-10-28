@@ -12,7 +12,10 @@ import { detectPackageManager, getInstallCommand } from './package-manager';
 
 export interface EvalConfig {
   name: string;
-  prompt: string;
+  prompts: Array<{
+    id: string; // Unique identifier for this prompt variant
+    prompt: string; // The actual prompt text
+  }>;
   projectDir: string; // Path to user's codebase (original, untouched)
 
   // NEW: Moved iterations into config
@@ -241,7 +244,9 @@ function formatMessage(
  */
 async function runSingleIteration(
   config: EvalConfig,
-  context: EnvGeneratorContext
+  context: EnvGeneratorContext,
+  promptId: string,
+  prompt: string
 ): Promise<IterationResult> {
   const startTime = Date.now();
   const evalId = randomUUID();
@@ -307,7 +312,7 @@ async function runSingleIteration(
     Object.assign(process.env, envVars);
 
     try {
-      console.log(`[Iteration ${context.iteration}] Running prompt: "${config.prompt}" in ${tempDir}...`);
+      console.log(`[Iteration ${context.iteration}] Running prompt: "${prompt}" in ${tempDir}...`);
 
       // Base system prompt with automation and isolation rules
       const baseSystemPrompt = `You are running in automated evaluation mode in an isolated sandbox environment.
@@ -334,7 +339,7 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
         : baseSystemPrompt;
 
       const result = query({
-        prompt: config.prompt,
+        prompt: prompt,
         options: {
           cwd: tempDir,
           settingSources: ['project'],
@@ -404,6 +409,7 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
 
       return {
         iterationId: context.iteration,
+        promptId,
         success,
         duration,
         scores,
@@ -420,6 +426,7 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
   } catch (error) {
     return {
       iterationId: context.iteration,
+      promptId,
       success: false,
       duration: Date.now() - startTime,
       scores: {},
@@ -495,18 +502,32 @@ async function runSequential(
 ): Promise<IterationResult[]> {
   const results: IterationResult[] = [];
 
-  for (let i = 0; i < iterations; i++) {
+  // Generate all combinations: prompts × iterations
+  const combinations: Array<{promptId: string, prompt: string, iteration: number}> = [];
+  for (const promptConfig of config.prompts) {
+    for (let i = 0; i < iterations; i++) {
+      combinations.push({
+        promptId: promptConfig.id,
+        prompt: promptConfig.prompt,
+        iteration: results.length + combinations.length
+      });
+    }
+  }
+
+  // Run each combination sequentially
+  for (const combo of combinations) {
     const context: EnvGeneratorContext = {
-      iteration: i,
+      iteration: combo.iteration,
+      promptId: combo.promptId,
       evalName: config.name,
-      totalIterations: iterations,
+      totalIterations: combinations.length,
     };
 
-    const result = await runSingleIteration(config, context);
+    const result = await runSingleIteration(config, context, combo.promptId, combo.prompt);
     results.push(result);
 
     // Print iteration summary
-    console.log(`\n[Iteration ${i}] ${result.success ? '✓ PASSED' : '✗ FAILED'} in ${(result.duration / 1000).toFixed(2)}s`);
+    console.log(`\n[Prompt: ${combo.promptId}] [Iteration ${combo.iteration}] ${result.success ? '✓ PASSED' : '✗ FAILED'} in ${(result.duration / 1000).toFixed(2)}s`);
   }
 
   return results;
@@ -520,27 +541,37 @@ async function runParallel(
   config: EvalConfig,
   iterations: number
 ): Promise<IterationResult[]> {
-  console.log(`Running ${iterations} iterations in parallel (unbounded)...`);
+  // Generate all combinations: prompts × iterations
+  const combinations: Array<{promptId: string, prompt: string, iteration: number}> = [];
+  let iterationCounter = 0;
+  for (const promptConfig of config.prompts) {
+    for (let i = 0; i < iterations; i++) {
+      combinations.push({
+        promptId: promptConfig.id,
+        prompt: promptConfig.prompt,
+        iteration: iterationCounter++
+      });
+    }
+  }
 
-  // Create all iteration promises
-  const promises = Array.from({ length: iterations }, (_, i) => {
+  console.log(`Running ${combinations.length} total runs (${config.prompts.length} prompts × ${iterations} iterations) in parallel (unbounded)...`);
+
+  // Create all promises and run in parallel
+  const promises = combinations.map(combo => {
     const context: EnvGeneratorContext = {
-      iteration: i,
+      iteration: combo.iteration,
+      promptId: combo.promptId,
       evalName: config.name,
-      totalIterations: iterations,
+      totalIterations: combinations.length,
     };
 
-    return runSingleIteration(config, context).then(result => {
-      // Print as each completes (may be out of order)
-      console.log(`\n[Iteration ${i}] ${result.success ? '✓ PASSED' : '✗ FAILED'} in ${(result.duration / 1000).toFixed(2)}s`);
+    return runSingleIteration(config, context, combo.promptId, combo.prompt).then(result => {
+      console.log(`\n[Prompt: ${combo.promptId}] [Iteration ${combo.iteration}] ${result.success ? '✓ PASSED' : '✗ FAILED'} in ${(result.duration / 1000).toFixed(2)}s`);
       return result;
     });
   });
 
-  // Wait for all to complete
   const results = await Promise.all(promises);
-
-  // Sort by iteration ID to maintain consistent ordering
   return results.sort((a, b) => a.iterationId - b.iterationId);
 }
 
@@ -579,26 +610,38 @@ async function runParallelWithLimit(
   iterations: number,
   concurrency: number
 ): Promise<IterationResult[]> {
-  console.log(`Running ${iterations} iterations in parallel (concurrency: ${concurrency})...`);
+  // Generate all combinations
+  const combinations: Array<{promptId: string, prompt: string, iteration: number}> = [];
+  let iterationCounter = 0;
+  for (const promptConfig of config.prompts) {
+    for (let i = 0; i < iterations; i++) {
+      combinations.push({
+        promptId: promptConfig.id,
+        prompt: promptConfig.prompt,
+        iteration: iterationCounter++
+      });
+    }
+  }
 
-  // Create task functions (not promises yet)
-  const tasks = Array.from({ length: iterations }, (_, i) => {
+  console.log(`Running ${combinations.length} total runs (${config.prompts.length} prompts × ${iterations} iterations) in parallel (concurrency: ${concurrency})...`);
+
+  // Create task functions
+  const tasks = combinations.map(combo => {
     return async () => {
       const context: EnvGeneratorContext = {
-        iteration: i,
+        iteration: combo.iteration,
+        promptId: combo.promptId,
         evalName: config.name,
-        totalIterations: iterations,
+        totalIterations: combinations.length,
       };
 
-      const result = await runSingleIteration(config, context);
-      console.log(`\n[Iteration ${i}] ${result.success ? '✓ PASSED' : '✗ FAILED'} in ${(result.duration / 1000).toFixed(2)}s`);
+      const result = await runSingleIteration(config, context, combo.promptId, combo.prompt);
+      console.log(`\n[Prompt: ${combo.promptId}] [Iteration ${combo.iteration}] ${result.success ? '✓ PASSED' : '✗ FAILED'} in ${(result.duration / 1000).toFixed(2)}s`);
       return result;
     };
   });
 
-  // Run with concurrency limit
   const results = await pLimit(tasks, concurrency);
-
   return results.sort((a, b) => a.iterationId - b.iterationId);
 }
 
@@ -613,11 +656,15 @@ export async function runClaudeCodeEval(
   const execution = config.execution || { mode: 'sequential' as const };
 
   // Validation
+  if (!config.prompts || config.prompts.length === 0) {
+    throw new Error('At least one prompt is required in config.prompts array');
+  }
   if (execution.mode === 'parallel-limit' && !execution.concurrency) {
     throw new Error('concurrency is required when mode is "parallel-limit"');
   }
 
-  console.log(`\nStarting evaluation "${config.name}" with ${iterations} iteration(s) (${execution.mode})...\n`);
+  const totalRuns = config.prompts.length * iterations;
+  console.log(`\nStarting evaluation "${config.name}" with ${config.prompts.length} prompt(s) × ${iterations} iteration(s) = ${totalRuns} total runs (${execution.mode})...\n`);
 
   let results: IterationResult[];
 
@@ -645,9 +692,21 @@ export async function runClaudeCodeEval(
   console.log('='.repeat(60));
   console.log(`Eval Name: ${config.name}`);
   console.log(`Total Duration: ${(duration / 1000).toFixed(2)}s`);
-  console.log(`Iterations: ${results.length}`);
+  console.log(`Prompts: ${config.prompts.length}`);
+  console.log(`Iterations per prompt: ${iterations}`);
+  console.log(`Total runs: ${results.length}`);
   console.log(`Pass Rate: ${(aggregateScores._overall.passRate * 100).toFixed(1)}%`);
   console.log(`Status: ${overallSuccess ? '✓ ALL PASSED' : '✗ SOME FAILED'}`);
+
+  // Show per-prompt pass rates
+  if (config.prompts.length > 1) {
+    console.log('\nPer-Prompt Results:');
+    for (const promptConfig of config.prompts) {
+      const promptResults = results.filter(r => r.promptId === promptConfig.id);
+      const promptPassRate = promptResults.filter(r => r.success).length / promptResults.length;
+      console.log(`  ${promptConfig.id}: ${(promptPassRate * 100).toFixed(1)}% pass rate (${promptResults.filter(r => r.success).length}/${promptResults.length})`);
+    }
+  }
 
   // Display aggregate scores
   if (Object.keys(aggregateScores).length > 1) {
