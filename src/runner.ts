@@ -475,7 +475,6 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
         success,
         duration,
         scores,
-        diff,
         agentOutput,
         tokenUsage,
         workingDir: shouldKeepTempDir ? tempDir : undefined,
@@ -492,7 +491,6 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
       success: false,
       duration: Date.now() - startTime,
       scores: {},
-      diff: '',
       agentOutput: '', // No agent output available in error case
       error: error instanceof Error ? error.message : String(error),
       environmentVariables: envVars,

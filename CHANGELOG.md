@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `'on-failure'`: Keep only failed iteration directories (new feature)
   - `'never'`: Keep all directories (equivalent to old `keepTempDir: true`)
 
+### Removed
+- `diff` field from `IterationResult` interface - git diffs no longer stored in results to reduce file bloat
+  - Scorers still receive diff via `ScorerContext` during execution
+  - Only affects stored/exported results (results.json, results.md)
+
 ## [0.0.1-alpha.2] - 2025-10-28
 
 ### Added
