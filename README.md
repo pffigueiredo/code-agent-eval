@@ -1,20 +1,21 @@
 # code-agent-eval
 
-`code-agent-eval` is a TypeScript library for evaluating prompts against coding agents (Claude Code, Cursor, etc.). Test prompt reliability by running them multiple times, capturing code changes, and scoring outputs using deterministic (build/test/lint) and LLM-based evaluation patterns.
+[![npm version](https://badge.fury.io/js/code-agent-eval.svg)](https://www.npmjs.com/package/code-agent-eval)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 
-**Key Principle**: Original codebases remain UNTOUCHED. All modifications happen in isolated temporary directories that are created per-iteration and cleaned up afterwards.
+Evaluate coding agent prompts (Claude Code, Cursor, etc.) by running them multiple times and scoring outputs. Test reliability, capture changes, measure success rates.
+
+> **Key Principle**: Your codebase stays untouched. All modifications happen in isolated temp directories.
 
 ## Features
 
-- ✅ **Multi-iteration evaluations**: Run prompts multiple times to test reliability
-- ✅ **Parallel execution**: Run iterations sequentially, in parallel, or with controlled concurrency
-- ✅ **Isolated execution**: Each run happens in a temporary directory, your codebase stays pristine
-- ✅ **Deterministic scorers**: Built-in build/test/lint validators
-- ✅ **Aggregate metrics**: Pass rate, mean/min/max scores, standard deviation
-- ✅ **Environment variable injection**: Static or dynamic env vars per iteration
-- ✅ **Git diff capture**: See exactly what changed
-- ✅ **Flexible scoring**: Write custom scorers or use built-ins
-- ✅ **Results export**: Export detailed results to markdown files
+- 🔄 Multi-iteration runs with aggregate metrics (pass rate, mean/min/max, std dev)
+- ⚡ Sequential, parallel, or rate-limited execution
+- 🔒 Isolated temp directories per iteration
+- ✅ Built-in scorers (build/test/lint) + custom scorer support
+- 📊 Git diff capture + markdown results export
+- 🔧 Environment variable injection (static/dynamic)
 
 ## Installation
 
@@ -33,61 +34,26 @@ bun add code-agent-eval
 ```typescript
 import { runClaudeCodeEval, scorers } from 'code-agent-eval';
 
-// Sequential execution (default)
 const result = await runClaudeCodeEval({
   name: 'add-feature',
   prompts: [{ id: 'v1', prompt: 'Add a health check endpoint' }],
   projectDir: './my-app',
-  iterations: 5,
+  iterations: 10,
+  execution: { mode: 'parallel' }, // or 'sequential' (default), 'parallel-limit'
   scorers: [scorers.buildSuccess(), scorers.testSuccess()],
 });
 
 console.log(`Pass rate: ${result.aggregateScores._overall.passRate * 100}%`);
-
-// Parallel execution
-const parallelResult = await runClaudeCodeEval({
-  name: 'add-feature',
-  prompts: [{ id: 'v1', prompt: 'Add a health check endpoint' }],
-  projectDir: './my-app',
-  iterations: 10,
-  execution: { mode: 'parallel' }, // Run all 10 iterations concurrently
-  scorers: [scorers.buildSuccess(), scorers.testSuccess()],
-});
-
-// Parallel with controlled concurrency
-const limitedResult = await runClaudeCodeEval({
-  name: 'add-feature',
-  prompts: [{ id: 'v1', prompt: 'Add a health check endpoint' }],
-  projectDir: './my-app',
-  iterations: 20,
-  execution: { mode: 'parallel-limit', concurrency: 3 }, // Max 3 concurrent iterations
-  scorers: [scorers.buildSuccess(), scorers.testSuccess()],
-});
 ```
 
 ## Development
 
-- Install dependencies:
-
 ```bash
-npm install
-```
+npm install              # Install dependencies
+npm run build            # Build library
+npm run test             # Run tests
 
-- Run the unit tests:
-
-```bash
-npm run test
-```
-
-- Build the library:
-
-```bash
-npm run build
-```
-
-- Run examples:
-
-```bash
+# Examples
 npx tsx examples/phase1-single-run.ts
 npx tsx examples/phase2-multi-iteration.ts
 npx tsx examples/parallel-execution.ts
