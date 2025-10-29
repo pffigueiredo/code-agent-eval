@@ -14,6 +14,7 @@ export type {
   ExecCommandOptions,
   EnvGeneratorContext,
   TokenUsage,
+  TempDirCleanup,
 } from './types';
 
 // Built-in scorers and factory

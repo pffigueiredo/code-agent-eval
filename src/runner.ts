@@ -13,6 +13,7 @@ import type {
   IterationResult,
   AggregateScore,
   ExecutionConfig,
+  TempDirCleanup,
 } from './types';
 import {
   generateEnvironmentVariables,
@@ -39,7 +40,7 @@ export interface EvalConfig {
   scorers?: Scorer[];
   claudeCodeOptions?: Options;
   verbose?: boolean; // Default: false. Show detailed SDK message logs when true
-  keepTempDir?: boolean; // Default: false. Keep temp directory after eval for inspection
+  tempDirCleanup?: TempDirCleanup; // Default: 'always'. Controls when temp directories are deleted
   resultsDir?: string; // Optional: Directory to write markdown results file
   installDependencies?: boolean; // Default: true. Set false to skip package installation
   environmentVariables?:
@@ -283,6 +284,9 @@ async function runSingleIteration(
     );
   }
 
+  // Track success status for cleanup logic
+  let iterationSuccess = false;
+
   try {
     // 1. Copy project to temp directory
     console.log(
@@ -458,6 +462,12 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
 
       const duration = Date.now() - startTime;
       const success = Object.values(scores).every((s) => s.score === 1.0);
+      iterationSuccess = success;
+
+      // Determine if we should keep the temp directory based on cleanup mode
+      const cleanupMode = config.tempDirCleanup || 'always';
+      const shouldKeepTempDir =
+        cleanupMode === 'never' || (cleanupMode === 'on-failure' && !success);
 
       return {
         iterationId: context.iteration,
@@ -468,7 +478,7 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
         diff,
         agentOutput,
         tokenUsage,
-        workingDir: config.keepTempDir ? tempDir : undefined,
+        workingDir: shouldKeepTempDir ? tempDir : undefined,
         environmentVariables: envVars,
       };
     } finally {
@@ -488,15 +498,24 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
       environmentVariables: envVars,
     };
   } finally {
-    // 7. Cleanup (unless keepTempDir option is set)
-    if (!config.keepTempDir) {
+    // 7. Cleanup based on tempDirCleanup mode
+    const cleanupMode = config.tempDirCleanup || 'always';
+    const shouldKeepTempDir =
+      cleanupMode === 'never' ||
+      (cleanupMode === 'on-failure' && !iterationSuccess);
+
+    if (!shouldKeepTempDir) {
       console.log(
         `[Iteration ${context.iteration}] Cleaning up temp directory...`
       );
       await fs.remove(tempDir);
     } else {
+      const reason =
+        cleanupMode === 'never'
+          ? 'tempDirCleanup: never'
+          : 'iteration failed';
       console.log(
-        `[Iteration ${context.iteration}] Temp directory preserved at ${tempDir}`
+        `[Iteration ${context.iteration}] Temp directory preserved at ${tempDir} (${reason})`
       );
     }
   }

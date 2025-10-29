@@ -16,7 +16,7 @@ async function main() {
       '/Users/pedro.figueiredo/Documents/git/personal/test-plugin-next',
     iterations: 5,
     scorers: [scorers.buildSuccess()],
-    keepTempDir: true, // Uncomment to preserve temp directory for inspection
+    tempDirCleanup: 'never', // Keep temp directory for inspection ('always' | 'on-failure' | 'never')
     claudeCodeOptions: {
       plugins: [
         {

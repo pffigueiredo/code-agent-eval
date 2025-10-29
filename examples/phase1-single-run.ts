@@ -17,7 +17,7 @@ async function main() {
     iterations: 1,
     // execution defaults to sequential
     scorers: [scorers.buildSuccess()],
-    keepTempDir: true, // Uncomment to preserve temp directory for inspection
+    tempDirCleanup: 'never', // Keep temp directory for inspection ('always' | 'on-failure' | 'never')
     environmentVariables: {
       VITE_STACK_PROJECT_ID: 'fc07f8c9-ff33-4a43-828e-25842cbf385d',
       VITE_STACK_PUBLISHABLE_CLIENT_KEY:

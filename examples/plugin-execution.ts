@@ -106,7 +106,7 @@ async function main() {
         }
       ),
     ],
-    keepTempDir: true, // Uncomment to preserve temp directory for inspection
+    tempDirCleanup: 'never', // Keep temp directory for inspection ('always' | 'on-failure' | 'never')
     claudeCodeOptions: {
       plugins: [
         {

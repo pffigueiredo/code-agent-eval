@@ -16,7 +16,7 @@ async function main() {
       '/Users/pedro.figueiredo/Documents/git/personal/todo-guardian-pro-supabasejs',
     iterations: 3,
     scorers: [scorers.buildSuccess()],
-    keepTempDir: true, // Uncomment to preserve temp directory for inspection
+    tempDirCleanup: 'never', // Keep temp directory for inspection ('always' | 'on-failure' | 'never')
     environmentVariables: {
       VITE_STACK_PROJECT_ID: 'fc07f8c9-ff33-4a43-828e-25842cbf385d',
       VITE_STACK_PUBLISHABLE_CLIENT_KEY:

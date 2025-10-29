@@ -34,7 +34,7 @@ npx tsx examples/plugin-execution.ts
 3. Run coding agent (currently Claude Agent SDK) with prompt
 4. Capture git diff of changes
 5. Score results (deterministic + LLM scorers)
-6. Cleanup temp dir (unless `keepTempDir: true`)
+6. Cleanup temp dir based on `tempDirCleanup` mode
 
 **Key Files**:
 - `src/runner.ts`: Main entry point (`runClaudeCodeEval()` + `runSingleIteration()`)
@@ -67,7 +67,7 @@ Exports:
   timeout?: number;                    // Default: 5 min
   scorers?: Scorer[];                  // Default: []
   verbose?: boolean;                   // Default: false (show SDK logs)
-  keepTempDir?: boolean;               // Default: false (preserve temp dirs)
+  tempDirCleanup?: TempDirCleanup;     // Default: 'always' ('always' | 'on-failure' | 'never')
   resultsDir?: string;                 // Optional: export results to dir
   installDependencies?: boolean;       // Default: true
   environmentVariables?: Record<string, string> | (context) => Record<string, string> | Promise<...>;
@@ -178,7 +178,10 @@ Currently uses `@anthropic-ai/claude-agent-sdk`:
 - Deps auto-installed after copy (10-min timeout)
 - Git initialized if not present
 - Original `projectDir` never modified
-- Cleanup automatic unless `keepTempDir: true`
+- Cleanup controlled by `tempDirCleanup`:
+  - `'always'` (default): Delete after every iteration
+  - `'on-failure'`: Keep only failed iteration directories
+  - `'never'`: Keep all directories for inspection
 
 ## Plugin Sandbox Isolation
 

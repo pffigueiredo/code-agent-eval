@@ -5,6 +5,14 @@ export interface ExecutionConfig {
   concurrency?: number; // Required when mode = 'parallel-limit'
 }
 
+/**
+ * Controls when temporary directories should be cleaned up after evaluation
+ * - 'always': Delete temp directories after every iteration (default)
+ * - 'on-failure': Keep temp directories only when iterations fail
+ * - 'never': Keep all temp directories for inspection
+ */
+export type TempDirCleanup = 'always' | 'on-failure' | 'never';
+
 export interface Scorer {
   name: string;
   evaluate: (context: ScorerContext) => Promise<ScorerResult>;
@@ -86,6 +94,6 @@ export interface EvalResult {
   iterations: IterationResult[];
   aggregateScores: Record<string, AggregateScore>;
   tokenUsage?: TokenUsage; // Token usage from Claude API
-  workingDir?: string; // Only set if keepTempDir=true
+  workingDir?: string; // Only set if temp dir is preserved (see tempDirCleanup config)
   error?: string;
 }

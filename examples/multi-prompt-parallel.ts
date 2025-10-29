@@ -26,7 +26,7 @@ async function main() {
     iterations: 3, // Each prompt runs 3 times
     execution: { mode: 'parallel' }, // All 9 runs (3 prompts × 3 iterations) execute concurrently
     scorers: [scorers.buildSuccess()],
-    keepTempDir: false,
+    tempDirCleanup: 'always', // Delete temp dirs after each iteration ('always' | 'on-failure' | 'never')
   });
 
   // Print per-prompt analysis

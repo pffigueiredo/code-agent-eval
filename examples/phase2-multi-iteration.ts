@@ -69,7 +69,7 @@ async function main() {
       };
     },
     scorers: [scorers.buildSuccess()],
-    keepTempDir: true, // Keep temp dirs to inspect generated .env files
+    tempDirCleanup: 'never', // Keep temp dirs to inspect generated .env files ('always' | 'on-failure' | 'never')
   });
 
   console.log('Result 3 - Pass Rate:', (result3.aggregateScores._overall.passRate * 100).toFixed(1) + '%');
