@@ -254,6 +254,19 @@ export function formatResultsAsMarkdown(result: EvalResult): string {
 }
 
 /**
+ * Write evaluation results as JSON file
+ * @param result - The evaluation result to write
+ * @param filePath - Path where JSON should be written
+ */
+export async function writeResultsAsJson(
+  result: EvalResult,
+  filePath: string
+): Promise<void> {
+  const json = JSON.stringify(result, null, 2);
+  await fs.writeFile(filePath, json, 'utf-8');
+}
+
+/**
  * Write evaluation results to a directory with structured output
  * @param result - The evaluation result to write
  * @param outputDir - Base directory where results should be written
@@ -278,6 +291,9 @@ export async function writeResults(
   // Write aggregate results.md
   const resultsMarkdown = formatResultsAsMarkdown(result);
   await fs.writeFile(path.join(dirPath, 'results.md'), resultsMarkdown, 'utf-8');
+
+  // Write results.json
+  await writeResultsAsJson(result, path.join(dirPath, 'results.json'));
 
   // Write per-iteration logs
   for (const iteration of result.iterations) {

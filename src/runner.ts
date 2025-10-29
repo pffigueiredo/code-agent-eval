@@ -35,9 +35,9 @@ export interface EvalConfig {
 
   execution?: ExecutionConfig; // Default: { mode: 'sequential' }
 
-  // Existing fields
   timeout?: number; // Default: 600000ms (10 minutes)
   scorers?: Scorer[];
+  agentId?: string; // Default: 'claude-code'. Identifier for the agent/model being evaluated
   claudeCodeOptions?: Options;
   verbose?: boolean; // Default: false. Show detailed SDK message logs when true
   tempDirCleanup?: TempDirCleanup; // Default: 'always'. Controls when temp directories are deleted
@@ -511,9 +511,7 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
       await fs.remove(tempDir);
     } else {
       const reason =
-        cleanupMode === 'never'
-          ? 'tempDirCleanup: never'
-          : 'iteration failed';
+        cleanupMode === 'never' ? 'tempDirCleanup: never' : 'iteration failed';
       console.log(
         `[Iteration ${context.iteration}] Temp directory preserved at ${tempDir} (${reason})`
       );
@@ -914,6 +912,7 @@ export async function runClaudeCodeEval(
   // Create the result object
   const evalResult: EvalResult = {
     evalName: config.name,
+    agentId: config.agentId || 'claude-code',
     timestamp: new Date().toISOString(),
     success: overallSuccess,
     duration,
@@ -928,6 +927,7 @@ export async function runClaudeCodeEval(
       const resultDir = await writeResults(evalResult, config.resultsDir);
       console.log(`\nResults written to: ${resultDir}/`);
       console.log(`  - Aggregate results: results.md`);
+      console.log(`  - JSON export: results.json`);
       console.log(`  - Iteration logs: iteration-*.log\n`);
     } catch (error) {
       console.error(

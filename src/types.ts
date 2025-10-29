@@ -88,6 +88,7 @@ export interface AggregateScore {
 
 export interface EvalResult {
   evalName: string;
+  agentId: string; // Identifier for the agent/model used (e.g., 'claude-code', 'claude-sonnet-4')
   timestamp: string;
   success: boolean;
   duration: number; // milliseconds

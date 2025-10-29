@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { detectPackageManager, getInstallCommand, type PackageManager } from '../src/package-manager';
 import fs from 'fs-extra';
 import os from 'os';

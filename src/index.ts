@@ -36,4 +36,4 @@ export { generateEnvironmentVariables, validateEnvironmentVariables } from './en
 export { detectPackageManager, getInstallCommand, type PackageManager } from './package-manager';
 
 // Results writer utilities
-export { writeResults, formatResultsAsMarkdown } from './results-writer';
+export { writeResults, formatResultsAsMarkdown, writeResultsAsJson } from './results-writer';

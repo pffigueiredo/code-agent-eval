@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- JSON export alongside markdown - `results.json` now written automatically when `resultsDir` is set
+- `agentId` field in `EvalResult` for tracking which agent/model was used (defaults to 'claude-code')
+- `agentId` optional config field in `EvalConfig` to override default agent identifier
+- `writeResultsAsJson()` utility function exported for manual JSON export
+
 ### Changed
 - Replaced `keepTempDir` boolean with `tempDirCleanup` enum for more flexible temp directory management
   - `'always'`: Delete after every iteration (default, equivalent to old `keepTempDir: false`)
