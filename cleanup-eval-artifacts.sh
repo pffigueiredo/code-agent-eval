@@ -174,12 +174,14 @@ main() {
     echo ""
     print_color "$BLUE" "Cleaning up..."
 
-    # Use parallel deletion with xargs
-    if [[ "$VERBOSE" == true ]]; then
-        printf '%s\0' "${eval_dirs[@]}" | xargs -0 -P 6 -I {} sh -c 'rm -rf "{}" && echo "  ✓ Deleted $(basename "{}")"'
-    else
-        printf '%s\0' "${eval_dirs[@]}" | xargs -0 -P 6 rm -rf
-    fi
+    # Use rsync trick for faster deletion (especially with node_modules)
+    empty_dir=$(mktemp -d)
+    for dir in "${eval_dirs[@]}"; do
+        rsync -a --delete "$empty_dir/" "$dir/" 2>/dev/null || true
+        rmdir "$dir" 2>/dev/null || rm -rf "$dir"
+        [[ "$VERBOSE" == true ]] && echo "  ✓ Deleted $(basename "$dir")"
+    done
+    rmdir "$empty_dir" 2>/dev/null || true
 
     # Count successful deletions by checking which directories no longer exist
     local deleted=0
