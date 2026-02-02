@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.1-alpha.5] - 2025-10-29
+
+### Internal
+- updated `@anthropic-ai/claude-agent-sdk` to latest
+
 ## [0.0.1-alpha.4] - 2025-10-29
 
 ### Removed
