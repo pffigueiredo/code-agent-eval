@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "better-cli": {
+      "source": "yogin16/better-cli",
+      "sourceType": "github",
+      "computedHash": "b3f8744a6a7a297ced7d60d6b6e0998554b76a3e0346ced6f7d6fb5d9591c557"
+    }
+  }
+}
