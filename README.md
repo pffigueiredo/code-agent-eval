@@ -57,12 +57,13 @@ npm run test             # Run tests
 npx tsx examples/phase1-single-run.ts
 npx tsx examples/phase2-multi-iteration.ts
 npx tsx examples/parallel-execution.ts
+npx tsx examples/multi-prompt-parallel.ts
 npx tsx examples/results-export.ts
 ```
 
 ## Documentation
 
-See [CLAUDE.md](./CLAUDE.md) for detailed architecture and development guide.
+See [CLAUDE.md](./CLAUDE.md) for agent context; expanded architecture, config, and scorer examples are in [docs/claude/](docs/claude/).
 
 ## Requirements
 

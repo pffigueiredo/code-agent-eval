@@ -27,8 +27,12 @@
     "llm",
     "typescript"
   ],
+  "bin": {
+    "code-agent-eval": "./dist/cli.js"
+  },
   "files": [
-    "dist"
+    "dist",
+    "SKILL.md"
   ],
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -38,7 +42,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "npm run typecheck && tsdown",
+    "build": "npm run typecheck && tsdown && node -e \"const fs=require('fs'),p='dist/cli.js',c=fs.readFileSync(p,'utf8');if(!c.startsWith('#!'))fs.writeFileSync(p,'#!/usr/bin/env node\\n'+c);fs.chmodSync(p,0o755)\"",
     "dev": "tsdown --watch",
     "test": "vitest",
     "typecheck": "tsc --noEmit",
@@ -49,14 +53,16 @@
     "@anthropic-ai/claude-agent-sdk": "0.2.29",
     "execa": "9.6.0",
     "fs-extra": "11.2.0",
+    "jiti": "2.6.1",
     "zod": "4.1.12"
   },
   "devDependencies": {
     "@types/fs-extra": "11.0.4",
     "@types/node": "24.9.1",
+    "am-i-vibing": "0.1.1",
     "bumpp": "10.3.1",
-    "typescript": "5.9.3",
     "tsdown": "0.15.9",
+    "typescript": "5.9.3",
     "vitest": "4.0.1"
   }
 }

@@ -101,7 +101,7 @@ function formatToolInvocation(toolName: string, input: any): string {
       return `⏺ Task(${param})`;
 
     case 'Skill':
-      param = input?.command || '';
+      param = input?.skill || '';
       return `⏺ Skill(${param})`;
 
     default:
