@@ -13,9 +13,10 @@ Evaluate coding agent prompts (Claude Code, Cursor, etc.) by running them multip
 - 🔄 Multi-iteration runs with aggregate metrics (pass rate, mean/min/max, std dev)
 - ⚡ Sequential, parallel, or rate-limited execution
 - 🔒 Isolated temp directories per iteration
-- ✅ Built-in scorers (build/test/lint) + custom scorer support
-- 📊 Git diff capture + markdown results export
+- ✅ Built-in scorers (build/test/lint), `skillPickedUp` for Skill invocations, plus custom scorers
+- 📊 Git diff capture; with `resultsDir`, exports `results.md`, per-iteration logs, and `results.json`
 - 🔧 Environment variable injection (static/dynamic)
+- 🖥️ CLI (`code-agent-eval`) to run evals from a config file (`--eval-file`)
 
 ## Installation
 
@@ -46,10 +47,27 @@ const result = await runClaudeCodeEval({
 console.log(`Pass rate: ${result.aggregateScores._overall.passRate * 100}%`);
 ```
 
+## CLI
+
+Run an eval from a file that exports a default (or named `config`) `EvalConfig`:
+
+```bash
+npx code-agent-eval --eval-file ./examples/cli-test.ts
+```
+
+After `npm install -g code-agent-eval`, use `code-agent-eval` instead of `npx`. See `code-agent-eval --help` for every flag.
+
+Eval files loaded via `--eval-file` may use `import { scorers, … } from 'code-agent-eval'`. The CLI resolves that specifier to the same package as the running binary, so **`npx` works without installing `code-agent-eval` in the project** (no local `node_modules` entry required for those imports).
+
+Useful options: `--json` (results on stdout), `--dry-run` (validate config and print plan), `--show-skill` (print eval/skill guide), `--iterations`, `--verbose`, `--results-dir`. Env vars `CODE_AGENT_EVAL_ITERATIONS`, `CODE_AGENT_EVAL_VERBOSE`, `CODE_AGENT_EVAL_RESULTS_DIR` override config when set.
+
+When the process runs inside an agentic environment, JSON-style stdout may be selected automatically; use `--no-agent-detect` or `CODE_AGENT_EVAL_AGENT_DETECT=0` to disable.
+
 ## Development
 
 ```bash
 npm install              # Install dependencies
+npm run typecheck        # TypeScript check
 npm run build            # Build library
 npm run test             # Run tests
 
@@ -59,6 +77,8 @@ npx tsx examples/phase2-multi-iteration.ts
 npx tsx examples/parallel-execution.ts
 npx tsx examples/multi-prompt-parallel.ts
 npx tsx examples/results-export.ts
+npx tsx examples/plugin-execution.ts
+npx code-agent-eval --eval-file ./examples/cli-test.ts
 ```
 
 ## Documentation
@@ -68,7 +88,8 @@ See [CLAUDE.md](./CLAUDE.md) for agent context; expanded architecture, config, a
 ## Requirements
 
 - Node.js 18+
-- Claude Code login in the host machine
+- `ANTHROPIC_API_KEY` for the Claude Agent SDK
+- Claude Code available on the host (CLI auth / environment expected for agent runs)
 
 ## License
 

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { execa, type Result } from 'execa';
+import { execa } from 'execa';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { resolveOutputMode } from '../src/agent-detect';
 
@@ -128,6 +130,79 @@ describe('CLI: --json error output', () => {
     expect(parsed.status).toBe('error');
     expect(parsed.error.code).toBe('INVALID_ARG');
     expect(parsed.agentDetection).toBeDefined();
+  });
+});
+
+describe('CLI: eval file imports code-agent-eval (npx-style)', () => {
+  it('loads .ts eval that imports package with cwd lacking local install', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-npx-'));
+    const evalPath = path.join(dir, 'eval.ts');
+    fs.writeFileSync(
+      evalPath,
+      `import { scorers } from 'code-agent-eval';
+
+export default {
+  name: 'npx-alias-test',
+  prompts: [{ id: 'v1', prompt: 'noop' }],
+  projectDir: '.',
+  iterations: 1,
+  installDependencies: false,
+  scorers: [scorers.buildSuccess()],
+};
+`,
+      'utf-8'
+    );
+    try {
+      const { stdout, stderr, exitCode } = await execa(
+        'node',
+        [CLI, '--dry-run', '--eval-file', evalPath, '--no-agent-detect'],
+        {
+          cwd: dir,
+          env: { ...process.env, CLAUDECODE: '' },
+          reject: false,
+        }
+      );
+      expect(exitCode, stderr).toBe(0);
+      expect(stdout).toContain('npx-alias-test');
+      expect(stdout).toContain('build');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('loads .mjs eval that imports package with cwd lacking local install', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-npx-'));
+    const evalPath = path.join(dir, 'eval.mjs');
+    fs.writeFileSync(
+      evalPath,
+      `import { scorers } from 'code-agent-eval';
+
+export default {
+  name: 'npx-alias-mjs',
+  prompts: [{ id: 'v1', prompt: 'noop' }],
+  projectDir: '.',
+  iterations: 1,
+  installDependencies: false,
+  scorers: [scorers.buildSuccess()],
+};
+`,
+      'utf-8'
+    );
+    try {
+      const { stdout, stderr, exitCode } = await execa(
+        'node',
+        [CLI, '--dry-run', '--eval-file', evalPath, '--no-agent-detect'],
+        {
+          cwd: dir,
+          env: { ...process.env, CLAUDECODE: '' },
+          reject: false,
+        }
+      );
+      expect(exitCode, stderr).toBe(0);
+      expect(stdout).toContain('npx-alias-mjs');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

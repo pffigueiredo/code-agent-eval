@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.1-alpha.7] - 2026-03-23
+
+### Changed
+- Extract eval config loader into `src/eval-config-loader.ts`; jiti alias resolves `'code-agent-eval'` so eval files work under `npx` without a project-local install
+- Add `release:reminder` pre-hooks (`prerelease`, `prerelease:alpha`) to nudge `/prepare-release` before publish
+
+### Added
+- CLI tests for npx-style `.ts` and `.mjs` eval file imports
+- SKILL.md: `projectDir` conventions and npx import resolution docs
+- README: CLI section, updated features list and requirements
+
+## [0.0.1-alpha.6] - 2026-03-22
+
+### Added
+- `code-agent-eval` CLI: `--eval-file` for `.ts`/`.js` eval configs (jiti), plus `--iterations`, `--verbose`, `--results-dir`, `--json`, `--dry-run`, `--show-skill`, `--no-agent-detect`, `--help`, `--version`; env overrides `CODE_AGENT_EVAL_*`; JSON on stdout when `--json` or agentic environment is detected (`am-i-vibing`)
+- `skillPickedUp` built-in scorer for Skill tool invocations
+- GitHub Actions workflow (Bun): install, typecheck, build, test
+
+### Fixed
+- Skill tool invocation display uses `input.skill`
+
 ## [0.0.1-alpha.5] - 2025-10-29
 
 ### Internal

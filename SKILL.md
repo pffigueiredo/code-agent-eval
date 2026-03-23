@@ -31,6 +31,8 @@ Create an eval config file (`.ts` or `.js`) and run:
 npx code-agent-eval --eval-file ./eval.config.ts
 ```
 
+With the CLI, you can `import { scorers, runClaudeCodeEval, … } from 'code-agent-eval'` inside the eval file: resolution is wired to the CLI’s copy of the package, so **`npx` does not require a project-local install** for that import.
+
 ## Eval config format
 
 Export a default object — no imports needed:
@@ -58,6 +60,14 @@ export default {
   resultsDir: './eval-results',
 }
 ```
+
+## `projectDir` and where files live
+
+- **Eval config files** — It is normal to keep them **next to the real project** (for example `evals/my-eval.ts` in the app repo). That layout is fine.
+- **`projectDir` = real codebase under test** — Use `.` (relative to cwd when you run the CLI), or a path to that checkout. Do not suggest moving the user’s real repo into a temp directory.
+- **`projectDir` = synthetic / scratch repo** (a fake tree only to drive the prompt — toy `package.json`, bloated `CLAUDE.md`, etc.) — **Create that tree under the system temp directory**, not under `~/something-evals/` or other durable home paths, unless the user explicitly wants it to persist. In Node, use `os.tmpdir()` with a unique subdirectory or `fs.mkdtempSync(path.join(os.tmpdir(), 'code-agent-eval-fixture-'))` and set `projectDir` to the resulting **absolute** path. The library still copies `projectDir` into its own per-run temp sandboxes; the source path should not leave long-lived junk in the user’s home directory.
+
+The tool cannot tell “fixture” from “real repo” automatically — **orchestrating agents** must follow the convention above.
 
 ## EvalConfig type
 

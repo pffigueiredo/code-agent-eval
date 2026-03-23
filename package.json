@@ -46,6 +46,9 @@
     "dev": "tsdown --watch",
     "test": "vitest",
     "typecheck": "tsc --noEmit",
+    "release:reminder": "node -e \"console.error('\\n*** Before releasing: run the /prepare-release Agent command (changelog, README, typecheck, test, build). ***\\n')\"",
+    "prerelease": "npm run release:reminder",
+    "prerelease:alpha": "npm run release:reminder",
     "release": "npm run build && bumpp",
     "release:alpha": "npm run build && bumpp --preid alpha --prerelease && npm publish --tag latest"
   },

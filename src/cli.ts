@@ -3,10 +3,10 @@ import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { z } from 'zod';
 import { detectAgenticEnvironment } from 'am-i-vibing';
 import { runClaudeCodeEval } from './runner';
 import type { EvalConfig } from './runner';
+import { loadEvalFile } from './eval-config-loader';
 import { resolveOutputMode } from './agent-detect';
 import type { AgentDetectionResult } from './agent-detect';
 
@@ -61,74 +61,6 @@ Examples:
   $ code-agent-eval --eval-file ./evals/refactor.ts --json > results.json
   $ code-agent-eval --eval-file ./evals/refactor.ts --results-dir ./out
 `;
-
-const evalConfigSchema = z.object({
-  name: z.string(),
-  prompts: z
-    .array(z.object({ id: z.string(), prompt: z.string() }))
-    .nonempty(),
-  projectDir: z.string(),
-  iterations: z.number().int().positive().optional(),
-  execution: z
-    .object({
-      mode: z.enum(['sequential', 'parallel', 'parallel-limit']),
-      concurrency: z.number().int().positive().optional(),
-    })
-    .optional(),
-  timeout: z.number().positive().optional(),
-  scorers: z
-    .array(
-      z.object({
-        name: z.string(),
-        evaluate: z.custom<Function>((v) => typeof v === 'function'),
-      })
-    )
-    .optional(),
-  verbose: z.boolean().optional(),
-  tempDirCleanup: z.enum(['always', 'on-failure', 'never']).optional(),
-  resultsDir: z.string().optional(),
-  installDependencies: z.boolean().optional(),
-  environmentVariables: z
-    .union([
-      z.record(z.string(), z.string()),
-      z.custom<Function>((v) => typeof v === 'function'),
-    ])
-    .optional(),
-  agentId: z.string().optional(),
-  claudeCodeOptions: z.record(z.string(), z.unknown()).optional(),
-});
-
-// --- Config loading ---
-
-async function loadEvalFile(filePath: string): Promise<EvalConfig> {
-  const resolved = path.resolve(filePath);
-
-  let mod: any;
-  if (/\.m?ts$/.test(resolved)) {
-    const { createJiti } = await import('jiti');
-    const jiti = createJiti(import.meta.url);
-    mod = await jiti.import(resolved);
-  } else {
-    mod = await import(resolved);
-  }
-
-  const raw = mod.default ?? mod.config;
-  if (!raw) {
-    throw new Error(
-      'Eval file must export a default or named "config" EvalConfig object'
-    );
-  }
-
-  const parsed = evalConfigSchema.safeParse(raw);
-  if (!parsed.success) {
-    const issues = parsed.error.issues
-      .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
-      .join('\n');
-    throw new Error(`Invalid eval config:\n${issues}`);
-  }
-
-  return parsed.data as EvalConfig;
-}
 
 // --- Main ---
 
