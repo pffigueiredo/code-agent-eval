@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.0.1-alpha.7] - 2026-03-23
+## [0.0.1-alpha.7] - 2026-03-28
 
 ### Changed
 - Extract eval config loader into `src/eval-config-loader.ts`; jiti alias resolves `'code-agent-eval'` so eval files work under `npx` without a project-local install
