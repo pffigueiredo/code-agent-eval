@@ -1,3 +1,8 @@
+/**
+ * Local plugin + extra `systemPrompt` — paths here are for local dev only.
+ * For reproducible evals, bundle required Claude Code project artifacts inside `projectDir`; see
+ * docs/claude/config-and-usage.md § Fixture-scoped Claude Code artifacts.
+ */
 import path from 'path';
 import { EvalConfig, runClaudeCodeEval, BuildSuccessScorer } from '../src';
 

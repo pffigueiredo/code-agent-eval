@@ -41,6 +41,8 @@ import { SkillPickedUpScorer } from 'code-agent-eval';
 new SkillPickedUpScorer('commit')
 ```
 
+For evals that assert on `Skill` tool use, ship the skill (and related `.claude/` context) **inside the fixture `projectDir`** so Claude Code can discover it without depending on `~/.claude`. See **Fixture-scoped Claude Code artifacts** in docs/claude/config-and-usage.md.
+
 **Hybrid scorer** (command + logic):
 ```typescript
 class BuildAndCheckScorer extends BaseScorer {

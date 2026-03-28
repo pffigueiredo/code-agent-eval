@@ -21,7 +21,7 @@ Related: docs/claude/scorers.md (scorer patterns), docs/claude/architecture-and-
   resultsDir?: string;                 // Optional: export results to dir
   installDependencies?: boolean;       // Default: true
   environmentVariables?: Record<string, string> | (context) => Record<string, string> | Promise<...>;
-  agentOptions?: {...};                // Override SDK options
+  claudeCodeOptions?: Record<string, unknown>; // Passthrough to Claude Agent SDK query() (plugins, systemPrompt, settingSources, …)
 }
 ```
 
@@ -31,6 +31,21 @@ Related: docs/claude/scorers.md (scorer patterns), docs/claude/architecture-and-
 - `sequential`: One at a time (default)
 - `parallel`: All iterations concurrently
 - `parallel-limit`: Controlled concurrency (requires `concurrency` param)
+
+## Fixture-scoped Claude Code artifacts
+
+For reproducible evals, put anything Claude Code should pick up **from the project tree** inside `projectDir` before the run. Examples:
+
+- `CLAUDE.md` or `.claude/CLAUDE.md`
+- `.claude/skills/`, `.claude/commands/`, hooks, subagents, and other shared `.claude/` config (as your team uses them)
+
+The runner copies `projectDir` into an isolated temp directory and invokes the Agent SDK with `cwd` set to that copy. By default it passes `settingSources: ['project']`, so project-scoped settings and artifacts load from the copy — same idea as a normal checkout.
+
+Do **not** rely on user-global `~/.claude` for eval prerequisites unless you explicitly want machine-specific behavior; use `claudeCodeOptions.settingSources` (e.g. include `'user'`) only when that is intentional.
+
+This npm package’s root `SKILL.md` is agent-facing documentation for **using** `code-agent-eval` (see `--show-skill`); it is **not** copied into eval sandboxes automatically.
+
+Local Claude Code **plugins** remain an SDK concern: pass `claudeCodeOptions.plugins` with a path to the plugin on disk when you need them (often machine-specific); fixture-scoped `.claude/` content is still the default story for team-shared agent context.
 
 ## Results Export
 

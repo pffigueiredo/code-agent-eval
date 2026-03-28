@@ -1,3 +1,9 @@
+/**
+ * Local Claude Code plugin via `claudeCodeOptions.plugins` (absolute path — machine-specific).
+ * For reproducible evals, prefer fixture-scoped Claude Code artifacts under `projectDir` (CLAUDE.md,
+ * `.claude/skills`, `.claude/commands`, hooks, subagents, etc.) so they copy with the project;
+ * see docs/claude/config-and-usage.md.
+ */
 import path from 'path';
 import { EvalConfig, runClaudeCodeEval, BaseScorer, BuildSuccessScorer } from '../src';
 import type { ScorerContext, ScorerResult } from '../src';

@@ -69,6 +69,15 @@ export default {
 
 The tool cannot tell “fixture” from “real repo” automatically — **orchestrating agents** must follow the convention above.
 
+## Claude Code artifacts in the fixture
+
+If the eval depends on anything Claude Code discovers **from the project** — `CLAUDE.md`, skills under `.claude/skills`, slash commands under `.claude/commands`, hooks, subagents, shared `.claude/settings.json`, etc. — **put those files inside `projectDir`**. The library copies the whole tree into its per-run temp sandbox and runs the agent with `cwd` there; the runner defaults to project filesystem settings (`settingSources: ['project']` in the Agent SDK), so the agent sees the same layout as a normal checkout.
+
+- **Do not** assume user-global `~/.claude` exists — breaks CI and other machines unless you intentionally opt in via `claudeCodeOptions.settingSources`.
+- **This repo’s root `SKILL.md`** (bundled with the npm package, printable via `--show-skill`) documents **how to use** `code-agent-eval`; it is **not** injected into eval sandboxes.
+- **Avoid** relying on agent-time “copy this skill in” workflows unless that side effect is what you are evaluating; prefer vendoring the final tree in the fixture.
+- **`claudeCodeOptions`**: optional passthrough to `@anthropic-ai/claude-agent-sdk` (`plugins`, extra `systemPrompt`, overrides to `settingSources`, etc.).
+
 ## EvalConfig type
 
 ```typescript
@@ -296,7 +305,7 @@ export default {
 - Original `projectDir` is never modified — all work happens in isolated `/tmp/eval-{uuid}` directories
 - Dependencies auto-installed (npm/yarn/pnpm/bun detected from lock files) unless `installDependencies: false`
 - Git repo initialized automatically if not already present
-- Agent runs with `permissionMode: 'bypassPermissions'` in a sandboxed system prompt
+- Agent runs with `permissionMode: 'bypassPermissions'` in a sandboxed system prompt; project-scoped Claude Code artifacts in `projectDir` copy into the temp `cwd` and load with default `settingSources: ['project']` unless you override via `claudeCodeOptions`
 - `--json` mode sends structured results to stdout, all logs to stderr — safe for piping
 - `--dry-run` validates config and prints the execution plan without running anything
 - Results written to `resultsDir/` if specified: `results.md`, `results.json`, and `iteration-*.log` files

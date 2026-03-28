@@ -13,8 +13,8 @@ Related: docs/claude/config-and-usage.md (config, results export), docs/claude/s
 6. Cleanup temp dir based on `tempDirCleanup` mode
 
 **Key Files**:
-- `src/runner.ts`: Main entry point (`runClaudeCodeEval()` + `runSingleIteration()`)
-- `src/types.ts`: All TypeScript types (`EvalConfig`, `EvalResult`, `Scorer`, etc.)
+- `src/runner.ts`: Main entry point (`runClaudeCodeEval()` + `runSingleIteration()`), `EvalConfig` interface
+- `src/types.ts`: Shared types (`EvalResult`, `Scorer`, `ScorerContext`, etc.)
 - `src/scorers/`: `BaseScorer` abstract class + built-in scorer classes
 - `src/env-generator.ts`: Environment variable injection (static/dynamic/async)
 - `src/package-manager.ts`: Auto-detect package manager from lock files
@@ -39,7 +39,7 @@ Currently uses `@anthropic-ai/claude-agent-sdk`:
 - `permissionMode: 'bypassPermissions'` - auto-approves all file ops
 - Special system prompt - instructs agent to never ask questions, make all decisions independently
 - Safe because runs in isolated temp dirs
-- Override via `agentOptions` if needed
+- Override via `claudeCodeOptions` if needed (passthrough to Agent SDK `query()`)
 
 ## Temp Directory Isolation
 
@@ -53,6 +53,12 @@ Currently uses `@anthropic-ai/claude-agent-sdk`:
   - `'on-failure'`: Keep only failed iteration directories
   - `'never'`: Keep all directories for inspection
 
+## Fixture-scoped Claude Code inputs
+
+Everything under `projectDir` — including `CLAUDE.md`, `.claude/skills`, `.claude/commands`, hooks, subagents, and `.claude/settings.json` — is copied into the temp working directory (subject to the copy filter). With the runner default `settingSources: ['project']`, the Agent SDK loads **project** filesystem settings from that copy, so evals behave like a normal repo checkout.
+
+Prefer this for reproducibility. User-global `~/.claude` is optional and not assumed; opt in via `claudeCodeOptions.settingSources` when you deliberately want user (or `local`) sources.
+
 ## Plugin Sandbox Isolation
 
 Plugins allowed but constrained via system prompt:
@@ -60,7 +66,7 @@ Plugins allowed but constrained via system prompt:
 - Never navigate outside working directory
 - Treat plugin-provided absolute paths as metadata-only (not for writing)
 - Ensures all file mods stay in temp dir
-- Pass plugins via `agentOptions.plugins` to test plugin workflows
+- Pass plugins via `claudeCodeOptions.plugins` to test plugin workflows
 
 ## Implementation Status
 
