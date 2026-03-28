@@ -17,19 +17,10 @@ export type {
   TempDirCleanup,
 } from './types';
 
-// Built-in scorers and factory
-import * as codeScorers from './scorers/code';
-import * as agentScorers from './scorers/agent';
-import { createScorer } from './scorers/factories';
-export const scorers = {
-  // Pre-built scorers
-  buildSuccess: codeScorers.buildSuccess,
-  testSuccess: codeScorers.testSuccess,
-  lintSuccess: codeScorers.lintSuccess,
-  skillPickedUp: agentScorers.skillPickedUp,
-  // Factory function
-  createScorer,
-};
+// Base scorer class and built-in scorers
+export { BaseScorer } from './scorers/base';
+export { BuildSuccessScorer, TestSuccessScorer, LintSuccessScorer } from './scorers/code';
+export { SkillPickedUpScorer } from './scorers/agent';
 
 // Environment variable utilities
 export { generateEnvironmentVariables, validateEnvironmentVariables } from './env-generator';

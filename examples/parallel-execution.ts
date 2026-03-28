@@ -1,4 +1,4 @@
-import { EvalConfig, runClaudeCodeEval, scorers } from '../src';
+import { EvalConfig, runClaudeCodeEval, BuildSuccessScorer } from '../src';
 
 async function main() {
   console.log('Comparing execution modes...\n');
@@ -15,7 +15,7 @@ async function main() {
     projectDir:
       '/Users/pedro.figueiredo/Documents/git/personal/todo-guardian-pro-supabasejs',
     iterations: 3,
-    scorers: [scorers.buildSuccess()],
+    scorers: [new BuildSuccessScorer()],
     tempDirCleanup: 'never', // Keep temp directory for inspection ('always' | 'on-failure' | 'never')
     environmentVariables: {
       VITE_STACK_PROJECT_ID: 'fc07f8c9-ff33-4a43-828e-25842cbf385d',

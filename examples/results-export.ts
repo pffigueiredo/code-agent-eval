@@ -1,4 +1,4 @@
-import { runClaudeCodeEval, scorers } from '../src';
+import { runClaudeCodeEval, BuildSuccessScorer, TestSuccessScorer } from '../src';
 import path from 'path';
 
 async function main() {
@@ -19,8 +19,8 @@ async function main() {
       mode: 'sequential'
     },
     scorers: [
-      scorers.buildSuccess(),
-      scorers.testSuccess(),
+      new BuildSuccessScorer(),
+      new TestSuccessScorer(),
     ],
     // NEW: Export results to markdown file
     resultsDir: path.join(process.cwd(), 'eval-results'),

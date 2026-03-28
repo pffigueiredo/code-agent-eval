@@ -1,5 +1,5 @@
 import path from 'path';
-import { EvalConfig, runClaudeCodeEval, scorers } from '../src';
+import { EvalConfig, runClaudeCodeEval, BuildSuccessScorer } from '../src';
 
 async function main() {
   console.log('Comparing execution modes...\n');
@@ -15,7 +15,7 @@ async function main() {
     projectDir:
       '/Users/pedro.figueiredo/Documents/git/personal/test-plugin-next',
     iterations: 5,
-    scorers: [scorers.buildSuccess()],
+    scorers: [new BuildSuccessScorer()],
     tempDirCleanup: 'never', // Keep temp directory for inspection ('always' | 'on-failure' | 'never')
     claudeCodeOptions: {
       plugins: [

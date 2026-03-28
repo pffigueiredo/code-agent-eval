@@ -31,7 +31,7 @@ Create an eval config file (`.ts` or `.js`) and run:
 npx code-agent-eval --eval-file ./eval.config.ts
 ```
 
-With the CLI, you can `import { scorers, runClaudeCodeEval, … } from 'code-agent-eval'` inside the eval file: resolution is wired to the CLI’s copy of the package, so **`npx` does not require a project-local install** for that import.
+With the CLI, you can `import { BuildSuccessScorer, runClaudeCodeEval, … } from ‘code-agent-eval’` inside the eval file: resolution is wired to the CLI’s copy of the package, so **`npx` does not require a project-local install** for that import.
 
 ## Eval config format
 
@@ -178,22 +178,22 @@ interface ScorerResult {
 The library ships pre-built scorers accessible via the programmatic API:
 
 ```typescript
-import { scorers } from 'code-agent-eval';
+import { BuildSuccessScorer, TestSuccessScorer, LintSuccessScorer, SkillPickedUpScorer } from 'code-agent-eval';
 
 export default {
   name: 'my-eval',
   prompts: [{ id: 'v1', prompt: 'Refactor the auth module' }],
   projectDir: '.',
   scorers: [
-    scorers.buildSuccess(),          // npm run build (5min timeout)
-    scorers.testSuccess(),           // npm run test  (5min timeout)
-    scorers.lintSuccess(),           // npm run lint  (1min timeout)
-    scorers.skillPickedUp('commit'), // check if 'commit' skill was invoked
+    new BuildSuccessScorer(),          // npm run build (5min timeout)
+    new TestSuccessScorer(),           // npm run test  (5min timeout)
+    new LintSuccessScorer(),           // npm run lint  (1min timeout)
+    new SkillPickedUpScorer('commit'), // check if 'commit' skill was invoked
   ],
 }
 ```
 
-`scorers.createScorer(name, evaluateFn)` is also available for creating custom scorers with the factory pattern.
+Extend `BaseScorer` for custom scorers — see docs/claude/scorers.md.
 
 ## CLI options
 

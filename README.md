@@ -33,7 +33,7 @@ bun add code-agent-eval
 ## Quick Start
 
 ```typescript
-import { runClaudeCodeEval, scorers } from 'code-agent-eval';
+import { runClaudeCodeEval, BuildSuccessScorer, TestSuccessScorer } from 'code-agent-eval';
 
 const result = await runClaudeCodeEval({
   name: 'add-feature',
@@ -41,7 +41,7 @@ const result = await runClaudeCodeEval({
   projectDir: './my-app',
   iterations: 10,
   execution: { mode: 'parallel' }, // or 'sequential' (default), 'parallel-limit'
-  scorers: [scorers.buildSuccess(), scorers.testSuccess()],
+  scorers: [new BuildSuccessScorer(), new TestSuccessScorer()],
 });
 
 console.log(`Pass rate: ${result.aggregateScores._overall.passRate * 100}%`);
@@ -57,7 +57,7 @@ npx code-agent-eval --eval-file ./examples/cli-test.ts
 
 After `npm install -g code-agent-eval`, use `code-agent-eval` instead of `npx`. See `code-agent-eval --help` for every flag.
 
-Eval files loaded via `--eval-file` may use `import { scorers, … } from 'code-agent-eval'`. The CLI resolves that specifier to the same package as the running binary, so **`npx` works without installing `code-agent-eval` in the project** (no local `node_modules` entry required for those imports).
+Eval files loaded via `--eval-file` may use `import { BuildSuccessScorer, … } from 'code-agent-eval'`. The CLI resolves that specifier to the same package as the running binary, so **`npx` works without installing `code-agent-eval` in the project** (no local `node_modules` entry required for those imports).
 
 Useful options: `--json` (results on stdout), `--dry-run` (validate config and print plan), `--show-skill` (print eval/skill guide), `--iterations`, `--verbose`, `--results-dir`. Env vars `CODE_AGENT_EVAL_ITERATIONS`, `CODE_AGENT_EVAL_VERBOSE`, `CODE_AGENT_EVAL_RESULTS_DIR` override config when set.
 

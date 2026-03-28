@@ -28,14 +28,14 @@ npx tsx examples/plugin-execution.ts|plugin example
 - `src/runner.ts` — `runClaudeCodeEval()`, `runSingleIteration()`
 - `src/types.ts` — `EvalConfig`, `EvalResult`, `Scorer`, etc.
 - `src/index.ts` — public exports
-- `src/scorers/` — `createScorer()` + built-ins
+- `src/scorers/` — `BaseScorer` abstract class + built-in scorer classes
 
 ## Must-know
 
 - **v2.0:** Config uses `prompts: Array<{ id, prompt }>`, not a single `prompt` string (one prompt ⇒ array of one).
 - **Env:** `ANTHROPIC_API_KEY` required for the Claude Agent SDK.
 - **Plugins:** Only relative paths for project files; do not leave the working directory; treat plugin absolute paths as metadata, not write targets.
-- **Tests:** `npm run test`; suites include `tests/index.test.ts`, `tests/env-vars.test.ts`, `tests/package-manager.test.ts`, `tests/execution-modes.test.ts`, `tests/results-writer.test.ts`. Integration checks: run the `npx tsx examples/...` commands above.
+- **Tests:** `npm run test`; suites include `tests/index.test.ts`, `tests/env-vars.test.ts`, `tests/package-manager.test.ts`, `tests/execution-modes.test.ts`, `tests/results-writer.test.ts`, `tests/base-scorer.test.ts`, `tests/agent-scorers.test.ts`. Integration checks: run the `npx tsx examples/...` commands above.
 
 ## Reference (read when needed)
 

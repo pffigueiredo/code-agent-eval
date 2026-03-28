@@ -1,4 +1,4 @@
-import { runClaudeCodeEval, scorers } from '../src';
+import { runClaudeCodeEval, BuildSuccessScorer } from '../src';
 
 async function main() {
   console.log('Running multi-prompt parallel evaluation...\n');
@@ -25,7 +25,7 @@ async function main() {
     projectDir: './test-project',
     iterations: 3, // Each prompt runs 3 times
     execution: { mode: 'parallel' }, // All 9 runs (3 prompts × 3 iterations) execute concurrently
-    scorers: [scorers.buildSuccess()],
+    scorers: [new BuildSuccessScorer()],
     tempDirCleanup: 'always', // Delete temp dirs after each iteration ('always' | 'on-failure' | 'never')
   });
 
