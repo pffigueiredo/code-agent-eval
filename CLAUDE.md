@@ -16,6 +16,7 @@ npm run build|build library
 npm run dev|watch mode
 npm run test|unit tests
 npm run typecheck|TypeScript check
+npm run release:prepare|bump version + write CHANGELOG for a release PR (see Releasing)
 npx tsx examples/phase1-single-run.ts|single-run example
 npx tsx examples/phase2-multi-iteration.ts|multi-iteration example
 npx tsx examples/parallel-execution.ts|parallel execution
