@@ -385,8 +385,9 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
         options: {
           cwd: tempDir,
           settingSources: ['project'],
-          // Bypass permission prompts for file operations
+          // SDK requires allowDangerouslySkipPermissions alongside bypass mode.
           permissionMode: 'bypassPermissions',
+          allowDangerouslySkipPermissions: true,
           ...config.claudeCodeOptions,
           // systemPrompt must come after spread to ensure concatenation works
           systemPrompt,
@@ -432,8 +433,9 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
       }
       const agentOutput = JSON.stringify(allMessages);
 
-      // 5. Capture git diff
+      // 5. Capture git diff. -AN stages new files so the diff includes them.
       console.log(`[Iteration ${context.iteration}] Capturing changes...`);
+      await execa('git', ['add', '-AN'], { cwd: tempDir });
       const { stdout: diff } = await execa('git', ['diff', 'HEAD'], {
         cwd: tempDir,
       });
