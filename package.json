@@ -50,7 +50,9 @@
     "release:prepare": "bumpp --no-commit --no-tag --no-push && git checkout -b \"release/$(node -p \"require('./package.json').version\")\" && changelogen --output CHANGELOG.md"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.2.101",
+    "@anthropic-ai/claude-agent-sdk": "0.3.187",
+    "@anthropic-ai/sdk": "0.105.0",
+    "@modelcontextprotocol/sdk": "1.29.0",
     "execa": "9.6.0",
     "fs-extra": "11.2.0",
     "jiti": "2.6.1",

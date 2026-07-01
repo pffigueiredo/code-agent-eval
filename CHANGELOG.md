@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **BREAKING:** Scorers are now class-based. Replace factory calls with constructors: `scorers.buildSuccess()` → `new BuildSuccessScorer()`, `scorers.testSuccess()` → `new TestSuccessScorer()`, `scorers.lintSuccess()` → `new LintSuccessScorer()`, `scorers.skillPickedUp()` → `new SkillPickedUpScorer()`. Custom scorers extend the new `BaseScorer` abstract class instead of `createScorer()`.
-- Bump `@anthropic-ai/claude-agent-sdk` to `0.2.101`
+- Bump `@anthropic-ai/claude-agent-sdk` to `0.3.187`; add `@anthropic-ai/sdk` and `@modelcontextprotocol/sdk` as direct dependencies (now required as peers by the `0.3.x` SDK)
 
 ### Removed
 - **BREAKING:** `scorers` namespace export and `createScorer()` factory — use the exported scorer classes and `BaseScorer` instead
