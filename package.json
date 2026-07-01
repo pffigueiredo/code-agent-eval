@@ -46,7 +46,7 @@
     "dev": "tsdown --watch",
     "test": "vitest",
     "typecheck": "tsc --noEmit",
-    "release:prepare": "bumpp --no-commit --no-tag --no-push && changelogen --output CHANGELOG.md"
+    "release:prepare": "bumpp --no-commit --no-tag --no-push && git checkout -b \"release/$(node -p \"require('./package.json').version\")\" && changelogen --output CHANGELOG.md"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.2.29",

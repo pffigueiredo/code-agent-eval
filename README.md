@@ -83,13 +83,15 @@ npx code-agent-eval --eval-file ./examples/cli-test.ts
 
 ## Releasing
 
-Releases are cut from a PR and published by CI:
+Releases are cut from a PR and published by CI. From an up-to-date `main`:
 
 ```bash
-git checkout -b release/x.y.z
-npm run release:prepare   # bumpp picks the version; changelogen writes the CHANGELOG section
+npm run release:prepare   # bumpp picks the version, creates release/<version>, changelogen writes the CHANGELOG section
 # review the CHANGELOG diff, then commit + open a PR
 ```
+
+`release:prepare` bumps the version, creates the `release/<version>` branch for you, and
+writes the CHANGELOG section — no need to create the branch by hand.
 
 On merge to `main`, `.github/workflows/release.yml` sees the new version has no matching
 tag, then tags `vX.Y.Z`, publishes to npm (with provenance), and creates a GitHub Release
