@@ -53,8 +53,8 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           pnpm run typecheck
-          pnpm test -- run
           pnpm run build
+          pnpm test -- run
 
       - name: Publish to npm (with provenance)
         if: steps.v.outputs.exists == 'false'
