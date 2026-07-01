@@ -11,17 +11,18 @@ In all interactions and commit messages, be extremely concise and sacrifice gram
 ## Commands
 
 command|purpose
-npm install|install deps
-npm run build|build library
-npm run dev|watch mode
-npm run test|unit tests
-npm run typecheck|TypeScript check
-npx tsx examples/phase1-single-run.ts|single-run example
-npx tsx examples/phase2-multi-iteration.ts|multi-iteration example
-npx tsx examples/parallel-execution.ts|parallel execution
-npx tsx examples/multi-prompt-parallel.ts|multi-prompt parallel
-npx tsx examples/results-export.ts|results export example
-npx tsx examples/plugin-execution.ts|plugin example
+pnpm install|install deps
+pnpm run build|build library
+pnpm run dev|watch mode
+pnpm run test|unit tests
+pnpm run typecheck|TypeScript check
+pnpm run release:prepare|bump version + write CHANGELOG for a release PR (see Releasing)
+pnpm dlx tsx examples/phase1-single-run.ts|single-run example
+pnpm dlx tsx examples/phase2-multi-iteration.ts|multi-iteration example
+pnpm dlx tsx examples/parallel-execution.ts|parallel execution
+pnpm dlx tsx examples/multi-prompt-parallel.ts|multi-prompt parallel
+pnpm dlx tsx examples/results-export.ts|results export example
+pnpm dlx tsx examples/plugin-execution.ts|plugin example
 
 ## Where to edit
 
@@ -35,7 +36,7 @@ npx tsx examples/plugin-execution.ts|plugin example
 - **v2.0:** Config uses `prompts: Array<{ id, prompt }>`, not a single `prompt` string (one prompt ⇒ array of one).
 - **Env:** `ANTHROPIC_API_KEY` required for the Claude Agent SDK.
 - **Plugins:** Only relative paths for project files; do not leave the working directory; treat plugin absolute paths as metadata, not write targets.
-- **Tests:** `npm run test`; suites include `tests/index.test.ts`, `tests/env-vars.test.ts`, `tests/package-manager.test.ts`, `tests/execution-modes.test.ts`, `tests/results-writer.test.ts`. Integration checks: run the `npx tsx examples/...` commands above.
+- **Tests:** `pnpm run test`; suites include `tests/index.test.ts`, `tests/env-vars.test.ts`, `tests/package-manager.test.ts`, `tests/execution-modes.test.ts`, `tests/results-writer.test.ts`. Integration checks: run the `pnpm dlx tsx examples/...` commands above.
 
 ## Reference (read when needed)
 
