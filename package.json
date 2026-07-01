@@ -46,11 +46,7 @@
     "dev": "tsdown --watch",
     "test": "vitest",
     "typecheck": "tsc --noEmit",
-    "release:reminder": "node -e \"console.error('\\n*** Before releasing: run the /prepare-release Agent command (changelog, README, typecheck, test, build). ***\\n')\"",
-    "prerelease": "npm run release:reminder",
-    "prerelease:alpha": "npm run release:reminder",
-    "release": "npm run build && bumpp",
-    "release:alpha": "npm run build && bumpp --preid alpha --prerelease && npm publish --tag latest"
+    "release:prepare": "bumpp --no-commit --no-tag --no-push && changelogen --output CHANGELOG.md"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.2.29",
@@ -64,6 +60,7 @@
     "@types/node": "24.9.1",
     "am-i-vibing": "0.1.1",
     "bumpp": "10.3.1",
+    "changelogen": "0.6.2",
     "tsdown": "0.15.9",
     "typescript": "5.9.3",
     "vitest": "4.0.1"

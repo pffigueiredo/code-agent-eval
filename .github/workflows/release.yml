@@ -1,0 +1,90 @@
+name: Release
+
+# Publishes to npm + creates a GitHub Release when package.json's version
+# lands on main without a matching git tag yet (i.e. a release PR was merged).
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write # create tag + GitHub Release
+  id-token: write # npm provenance / Trusted Publishing (OIDC)
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need tags to detect whether this version is already released
+
+      - name: Resolve version and tag
+        id: v
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git rev-parse "v$version" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+          # dist-tag: prereleases (1.2.3-alpha.0) publish under their label, stable under latest
+          if [[ "$version" == *-* ]]; then
+            label=${version#*-}   # alpha.0
+            echo "disttag=${label%%.*}" >> "$GITHUB_OUTPUT"  # alpha
+          else
+            echo "disttag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Node
+        if: steps.v.outputs.exists == 'false'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Install, build, test
+        if: steps.v.outputs.exists == 'false'
+        run: |
+          npm ci
+          npm run typecheck
+          npm run test run
+          npm run build
+
+      - name: Publish to npm (with provenance)
+        if: steps.v.outputs.exists == 'false'
+        run: |
+          npm install -g npm@latest # ensure OIDC Trusted Publishing support
+          npm publish --provenance --access public --tag ${{ steps.v.outputs.disttag }}
+
+      - name: Tag the release
+        if: steps.v.outputs.exists == 'false'
+        run: |
+          git tag "v${{ steps.v.outputs.version }}"
+          git push origin "v${{ steps.v.outputs.version }}"
+
+      - name: Extract changelog section
+        if: steps.v.outputs.exists == 'false'
+        run: |
+          node -e "
+            const fs = require('fs');
+            const v = '${{ steps.v.outputs.version }}';
+            const md = fs.readFileSync('CHANGELOG.md', 'utf8').split('\n');
+            const start = md.findIndex(l => /^##\s/.test(l) && l.includes(v));
+            if (start === -1) { fs.writeFileSync('RELEASE_NOTES.md', 'See CHANGELOG.md'); process.exit(0); }
+            const rest = md.slice(start + 1);
+            const end = rest.findIndex(l => /^##\s/.test(l));
+            const body = rest.slice(0, end === -1 ? undefined : end).join('\n').trim();
+            fs.writeFileSync('RELEASE_NOTES.md', body || 'See CHANGELOG.md');
+          "
+
+      - name: Create GitHub Release
+        if: steps.v.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=$([[ "${{ steps.v.outputs.version }}" == *-* ]] && echo "--prerelease" || echo "")
+          gh release create "v${{ steps.v.outputs.version }}" \
+            --title "v${{ steps.v.outputs.version }}" \
+            --notes-file RELEASE_NOTES.md \
+            $prerelease

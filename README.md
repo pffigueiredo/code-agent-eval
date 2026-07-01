@@ -81,6 +81,24 @@ npx tsx examples/plugin-execution.ts
 npx code-agent-eval --eval-file ./examples/cli-test.ts
 ```
 
+## Releasing
+
+Releases are cut from a PR and published by CI:
+
+```bash
+git checkout -b release/x.y.z
+npm run release:prepare   # bumpp picks the version; changelogen writes the CHANGELOG section
+# review the CHANGELOG diff, then commit + open a PR
+```
+
+On merge to `main`, `.github/workflows/release.yml` sees the new version has no matching
+tag, then tags `vX.Y.Z`, publishes to npm (with provenance), and creates a GitHub Release
+from the CHANGELOG section. Prereleases (e.g. `-alpha.0`) publish under a matching dist-tag,
+not `latest`.
+
+> One-time setup: enable npm [Trusted Publishing (OIDC)](https://docs.npmjs.com/trusted-publishers)
+> for this package so CI can publish without an `NPM_TOKEN`.
+
 ## Documentation
 
 See [CLAUDE.md](./CLAUDE.md) for agent context; expanded architecture, config, and scorer examples are in [docs/claude/](docs/claude/).
