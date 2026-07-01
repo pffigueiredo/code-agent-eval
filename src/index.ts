@@ -25,8 +25,5 @@ export { SkillPickedUpScorer } from './scorers/agent';
 // Environment variable utilities
 export { generateEnvironmentVariables, validateEnvironmentVariables } from './env-generator';
 
-// Package manager utilities
-export { detectPackageManager, getInstallCommand, type PackageManager } from './package-manager';
-
 // Results writer utilities
 export { writeResults, formatResultsAsMarkdown, writeResultsAsJson } from './results-writer';

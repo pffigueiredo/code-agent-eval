@@ -21,7 +21,7 @@ import {
 } from './env-generator';
 import { writeResults } from './results-writer';
 import { buildExecCommand } from './scorers/factories';
-import { detectPackageManager, getInstallCommand } from './package-manager';
+import { installProjectDependencies } from './install-deps';
 
 export interface EvalConfig {
   name: string;
@@ -310,19 +310,13 @@ async function runSingleIteration(
       console.log(
         `[Iteration ${context.iteration}] Installing dependencies...`
       );
-      const packageManager = await detectPackageManager(config.projectDir);
-      const installCommand = getInstallCommand(packageManager);
-      console.log(
-        `[Iteration ${context.iteration}] Using ${packageManager} (detected from lock file)`
-      );
-
       try {
-        await execa(installCommand[0], installCommand.slice(1), {
-          cwd: tempDir,
-          timeout: 600000, // 10 minute timeout for large projects
-        });
+        const { packageManager } = await installProjectDependencies(
+          tempDir,
+          !config.verbose
+        );
         console.log(
-          `[Iteration ${context.iteration}] Dependencies installed successfully`
+          `[Iteration ${context.iteration}] Installed dependencies with ${packageManager}`
         );
       } catch (error) {
         const errorMessage =

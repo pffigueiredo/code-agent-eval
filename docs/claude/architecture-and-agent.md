@@ -17,7 +17,7 @@ Related: docs/claude/config-and-usage.md (config, results export), docs/claude/s
 - `src/types.ts`: Shared types (`EvalResult`, `Scorer`, `ScorerContext`, etc.)
 - `src/scorers/`: `BaseScorer` abstract class + built-in scorer classes
 - `src/env-generator.ts`: Environment variable injection (static/dynamic/async)
-- `src/package-manager.ts`: Auto-detect package manager from lock files
+- `src/install-deps.ts`: Install project deps via `nypm` (auto-detects package manager)
 - `src/results-writer.ts`: Export results to markdown files
 
 ## Public API (`src/index.ts`)
@@ -26,7 +26,7 @@ Exports:
 - `runClaudeCodeEval()` - main runner (Claude Code agent)
 - `BaseScorer`, `BuildSuccessScorer`, `TestSuccessScorer`, `LintSuccessScorer`, `SkillPickedUpScorer` — class-based scorers
 - All types from `types.ts`
-- Utils: `generateEnvironmentVariables`, `validateEnvironmentVariables`, `detectPackageManager`, `getInstallCommand`, `writeResults`, `writeResultsAsJson`, `formatResultsAsMarkdown`
+- Utils: `generateEnvironmentVariables`, `validateEnvironmentVariables`, `writeResults`, `writeResultsAsJson`, `formatResultsAsMarkdown`
 
 ## Agent SDK Integration
 

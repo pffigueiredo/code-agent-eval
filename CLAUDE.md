@@ -36,7 +36,7 @@ pnpm dlx tsx examples/plugin-execution.ts|plugin example
 - **v2.0:** Config uses `prompts: Array<{ id, prompt }>`, not a single `prompt` string (one prompt ⇒ array of one).
 - **Env:** `ANTHROPIC_API_KEY` required for the Claude Agent SDK.
 - **Plugins:** Only relative paths for project files; do not leave the working directory; treat plugin absolute paths as metadata, not write targets.
-- **Tests:** `pnpm run test`; suites include `tests/index.test.ts`, `tests/env-vars.test.ts`, `tests/package-manager.test.ts`, `tests/execution-modes.test.ts`, `tests/results-writer.test.ts`, `tests/base-scorer.test.ts`, `tests/agent-scorers.test.ts`. Integration checks: run the `pnpm dlx tsx examples/...` commands above.
+- **Tests:** `pnpm run test`; suites include `tests/index.test.ts`, `tests/env-vars.test.ts`, `tests/install-deps.test.ts`, `tests/execution-modes.test.ts`, `tests/results-writer.test.ts`, `tests/base-scorer.test.ts`, `tests/agent-scorers.test.ts`. Integration checks: run the `pnpm dlx tsx examples/...` commands above.
 
 ## Reference (read when needed)
 
