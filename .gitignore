@@ -6,3 +6,5 @@ dist
 docs
 eval-results
 thoughts/shared/plans
+# Riptide artifacts (cloud-synced)
+.humanlayer/tasks/
