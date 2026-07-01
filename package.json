@@ -4,6 +4,7 @@
   "description": "TypeScript library for evaluating prompts against coding agents (Claude Code, Cursor, etc.) with multi-iteration testing and scoring",
   "type": "module",
   "license": "MIT",
+  "packageManager": "pnpm@10.33.0",
   "homepage": "https://github.com/pffigueiredo/code-agent-eval#readme",
   "bugs": {
     "url": "https://github.com/pffigueiredo/code-agent-eval/issues"
@@ -46,11 +47,7 @@
     "dev": "tsdown --watch",
     "test": "vitest",
     "typecheck": "tsc --noEmit",
-    "release:reminder": "node -e \"console.error('\\n*** Before releasing: run the /prepare-release Agent command (changelog, README, typecheck, test, build). ***\\n')\"",
-    "prerelease": "npm run release:reminder",
-    "prerelease:alpha": "npm run release:reminder",
-    "release": "npm run build && bumpp",
-    "release:alpha": "npm run build && bumpp --preid alpha --prerelease && npm publish --tag latest"
+    "release:prepare": "bumpp --no-commit --no-tag --no-push && git checkout -b \"release/$(node -p \"require('./package.json').version\")\" && changelogen --output CHANGELOG.md"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.2.101",
@@ -64,6 +61,7 @@
     "@types/node": "24.9.1",
     "am-i-vibing": "0.1.1",
     "bumpp": "10.3.1",
+    "changelogen": "0.6.2",
     "tsdown": "0.15.9",
     "typescript": "5.9.3",
     "vitest": "4.0.1"

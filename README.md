@@ -66,20 +66,40 @@ When the process runs inside an agentic environment, JSON-style stdout may be se
 ## Development
 
 ```bash
-npm install              # Install dependencies
-npm run typecheck        # TypeScript check
-npm run build            # Build library
-npm run test             # Run tests
+pnpm install              # Install dependencies
+pnpm run typecheck        # TypeScript check
+pnpm run build            # Build library
+pnpm run test             # Run tests
 
 # Examples
-npx tsx examples/phase1-single-run.ts
-npx tsx examples/phase2-multi-iteration.ts
-npx tsx examples/parallel-execution.ts
-npx tsx examples/multi-prompt-parallel.ts
-npx tsx examples/results-export.ts
-npx tsx examples/plugin-execution.ts
-npx code-agent-eval --eval-file ./examples/cli-test.ts
+pnpm dlx tsx examples/phase1-single-run.ts
+pnpm dlx tsx examples/phase2-multi-iteration.ts
+pnpm dlx tsx examples/parallel-execution.ts
+pnpm dlx tsx examples/multi-prompt-parallel.ts
+pnpm dlx tsx examples/results-export.ts
+pnpm dlx tsx examples/plugin-execution.ts
+node dist/cli.js --eval-file ./examples/cli-test.ts   # after pnpm run build
 ```
+
+## Releasing
+
+Releases are cut from a PR and published by CI. From an up-to-date `main`:
+
+```bash
+pnpm run release:prepare   # bumpp picks the version, creates release/<version>, changelogen writes the CHANGELOG section
+# review the CHANGELOG diff, then commit + open a PR
+```
+
+`release:prepare` bumps the version, creates the `release/<version>` branch for you, and
+writes the CHANGELOG section — no need to create the branch by hand.
+
+On merge to `main`, `.github/workflows/release.yml` sees the new version has no matching
+tag, then tags `vX.Y.Z`, publishes to npm (with provenance), and creates a GitHub Release
+from the CHANGELOG section. Prereleases (e.g. `-alpha.0`) publish under a matching dist-tag,
+not `latest`.
+
+> One-time setup: enable npm [Trusted Publishing (OIDC)](https://docs.npmjs.com/trusted-publishers)
+> for this package so CI can publish without an `NPM_TOKEN`.
 
 ## Documentation
 
