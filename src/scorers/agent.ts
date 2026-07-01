@@ -1,5 +1,5 @@
-import type { Scorer } from '../types';
-import { createScorer } from './factories';
+import type { ScorerContext, ScorerResult } from '../types';
+import { BaseScorer } from './base';
 
 interface ToolUseBlock {
   type: 'tool_use';
@@ -29,13 +29,20 @@ function isToolUseBlock(block: unknown): block is ToolUseBlock {
 }
 
 /**
- * Creates a scorer that checks if a specific skill was invoked during the agent's run.
+ * Scorer that checks if a specific skill was invoked during the agent's run.
  * Parses `agentOutput` JSON to find Skill tool invocations matching `skillName`.
  *
  * Scorer name follows the pattern `skill-picked-up:{skillName}` to support multiple instances.
  */
-export function skillPickedUp(skillName: string): Scorer {
-  return createScorer(`skill-picked-up:${skillName}`, async ({ agentOutput }) => {
+export class SkillPickedUpScorer extends BaseScorer {
+  readonly name: string;
+
+  constructor(private readonly skillName: string) {
+    super();
+    this.name = `skill-picked-up:${skillName}`;
+  }
+
+  async evaluate({ agentOutput }: ScorerContext): Promise<ScorerResult> {
     let messages: unknown[];
     try {
       messages = JSON.parse(agentOutput);
@@ -54,12 +61,12 @@ export function skillPickedUp(skillName: string): Scorer {
         if (!Array.isArray(msg.message?.content)) return false;
         return msg.message!.content.some((block) => {
           if (!isToolUseBlock(block)) return false;
-          return block.name === 'Skill' && block.input['skill'] === skillName;
+          return block.name === 'Skill' && block.input['skill'] === this.skillName;
         });
       });
 
     return found
-      ? { score: 1.0, reason: `Skill '${skillName}' was invoked` }
-      : { score: 0.0, reason: `Skill '${skillName}' was not invoked` };
-  });
+      ? { score: 1.0, reason: `Skill '${this.skillName}' was invoked` }
+      : { score: 0.0, reason: `Skill '${this.skillName}' was not invoked` };
+  }
 }

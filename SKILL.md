@@ -31,7 +31,7 @@ Create an eval config file (`.ts` or `.js`) and run:
 npx code-agent-eval --eval-file ./eval.config.ts
 ```
 
-With the CLI, you can `import { scorers, runClaudeCodeEval, … } from 'code-agent-eval'` inside the eval file: resolution is wired to the CLI’s copy of the package, so **`npx` does not require a project-local install** for that import.
+With the CLI, you can `import { BuildSuccessScorer, runClaudeCodeEval, … } from ‘code-agent-eval’` inside the eval file: resolution is wired to the CLI’s copy of the package, so **`npx` does not require a project-local install** for that import.
 
 ## Eval config format
 
@@ -68,6 +68,15 @@ export default {
 - **`projectDir` = synthetic / scratch repo** (a fake tree only to drive the prompt — toy `package.json`, bloated `CLAUDE.md`, etc.) — **Create that tree under the system temp directory**, not under `~/something-evals/` or other durable home paths, unless the user explicitly wants it to persist. In Node, use `os.tmpdir()` with a unique subdirectory or `fs.mkdtempSync(path.join(os.tmpdir(), 'code-agent-eval-fixture-'))` and set `projectDir` to the resulting **absolute** path. The library still copies `projectDir` into its own per-run temp sandboxes; the source path should not leave long-lived junk in the user’s home directory.
 
 The tool cannot tell “fixture” from “real repo” automatically — **orchestrating agents** must follow the convention above.
+
+## Claude Code artifacts in the fixture
+
+If the eval depends on anything Claude Code discovers **from the project** — `CLAUDE.md`, skills under `.claude/skills`, slash commands under `.claude/commands`, hooks, subagents, shared `.claude/settings.json`, etc. — **put those files inside `projectDir`**. The library copies the whole tree into its per-run temp sandbox and runs the agent with `cwd` there; the runner defaults to project filesystem settings (`settingSources: ['project']` in the Agent SDK), so the agent sees the same layout as a normal checkout.
+
+- **Do not** assume user-global `~/.claude` exists — breaks CI and other machines unless you intentionally opt in via `claudeCodeOptions.settingSources`.
+- **This repo’s root `SKILL.md`** (bundled with the npm package, printable via `--show-skill`) documents **how to use** `code-agent-eval`; it is **not** injected into eval sandboxes.
+- **Avoid** relying on agent-time “copy this skill in” workflows unless that side effect is what you are evaluating; prefer vendoring the final tree in the fixture.
+- **`claudeCodeOptions`**: optional passthrough to `@anthropic-ai/claude-agent-sdk` (`plugins`, extra `systemPrompt`, overrides to `settingSources`, etc.).
 
 ## EvalConfig type
 
@@ -178,22 +187,22 @@ interface ScorerResult {
 The library ships pre-built scorers accessible via the programmatic API:
 
 ```typescript
-import { scorers } from 'code-agent-eval';
+import { BuildSuccessScorer, TestSuccessScorer, LintSuccessScorer, SkillPickedUpScorer } from 'code-agent-eval';
 
 export default {
   name: 'my-eval',
   prompts: [{ id: 'v1', prompt: 'Refactor the auth module' }],
   projectDir: '.',
   scorers: [
-    scorers.buildSuccess(),          // npm run build (5min timeout)
-    scorers.testSuccess(),           // npm run test  (5min timeout)
-    scorers.lintSuccess(),           // npm run lint  (1min timeout)
-    scorers.skillPickedUp('commit'), // check if 'commit' skill was invoked
+    new BuildSuccessScorer(),          // npm run build (5min timeout)
+    new TestSuccessScorer(),           // npm run test  (5min timeout)
+    new LintSuccessScorer(),           // npm run lint  (1min timeout)
+    new SkillPickedUpScorer('commit'), // check if 'commit' skill was invoked
   ],
 }
 ```
 
-`scorers.createScorer(name, evaluateFn)` is also available for creating custom scorers with the factory pattern.
+Extend `BaseScorer` for custom scorers — see docs/claude/scorers.md.
 
 ## CLI options
 
@@ -296,7 +305,7 @@ export default {
 - Original `projectDir` is never modified — all work happens in isolated `/tmp/eval-{uuid}` directories
 - Dependencies auto-installed (npm/yarn/pnpm/bun detected from lock files) unless `installDependencies: false`
 - Git repo initialized automatically if not already present
-- Agent runs with `permissionMode: 'bypassPermissions'` in a sandboxed system prompt
+- Agent runs with `permissionMode: 'bypassPermissions'` in a sandboxed system prompt; project-scoped Claude Code artifacts in `projectDir` copy into the temp `cwd` and load with default `settingSources: ['project']` unless you override via `claudeCodeOptions`
 - `--json` mode sends structured results to stdout, all logs to stderr — safe for piping
 - `--dry-run` validates config and prints the execution plan without running anything
 - Results written to `resultsDir/` if specified: `results.md`, `results.json`, and `iteration-*.log` files

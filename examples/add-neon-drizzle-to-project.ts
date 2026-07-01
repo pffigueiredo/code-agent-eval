@@ -1,5 +1,10 @@
+/**
+ * Local plugin + extra `systemPrompt` — paths here are for local dev only.
+ * For reproducible evals, bundle required Claude Code project artifacts inside `projectDir`; see
+ * docs/claude/config-and-usage.md § Fixture-scoped Claude Code artifacts.
+ */
 import path from 'path';
-import { EvalConfig, runClaudeCodeEval, scorers } from '../src';
+import { EvalConfig, runClaudeCodeEval, BuildSuccessScorer } from '../src';
 
 async function main() {
   console.log('Comparing execution modes...\n');
@@ -15,7 +20,7 @@ async function main() {
     projectDir:
       '/Users/pedro.figueiredo/Documents/git/personal/test-plugin-next',
     iterations: 5,
-    scorers: [scorers.buildSuccess()],
+    scorers: [new BuildSuccessScorer()],
     tempDirCleanup: 'never', // Keep temp directory for inspection ('always' | 'on-failure' | 'never')
     claudeCodeOptions: {
       plugins: [

@@ -139,7 +139,7 @@ describe('CLI: eval file imports code-agent-eval (npx-style)', () => {
     const evalPath = path.join(dir, 'eval.ts');
     fs.writeFileSync(
       evalPath,
-      `import { scorers } from 'code-agent-eval';
+      `import { BuildSuccessScorer } from 'code-agent-eval';
 
 export default {
   name: 'npx-alias-test',
@@ -147,7 +147,7 @@ export default {
   projectDir: '.',
   iterations: 1,
   installDependencies: false,
-  scorers: [scorers.buildSuccess()],
+  scorers: [new BuildSuccessScorer()],
 };
 `,
       'utf-8'
@@ -175,7 +175,7 @@ export default {
     const evalPath = path.join(dir, 'eval.mjs');
     fs.writeFileSync(
       evalPath,
-      `import { scorers } from 'code-agent-eval';
+      `import { BuildSuccessScorer } from 'code-agent-eval';
 
 export default {
   name: 'npx-alias-mjs',
@@ -183,7 +183,7 @@ export default {
   projectDir: '.',
   iterations: 1,
   installDependencies: false,
-  scorers: [scorers.buildSuccess()],
+  scorers: [new BuildSuccessScorer()],
 };
 `,
       'utf-8'

@@ -27,10 +27,14 @@ export const evalConfigSchema = z.object({
   timeout: z.number().positive().optional(),
   scorers: z
     .array(
-      z.object({
-        name: z.string(),
-        evaluate: z.custom<Function>((v) => typeof v === 'function'),
-      })
+      z.custom<{ name: string; evaluate: Function }>(
+        (v) =>
+          typeof v === 'object' &&
+          v !== null &&
+          typeof (v as any).name === 'string' &&
+          typeof (v as any).evaluate === 'function',
+        { message: 'Each scorer must have a string `name` and a function `evaluate`' }
+      )
     )
     .optional(),
   verbose: z.boolean().optional(),

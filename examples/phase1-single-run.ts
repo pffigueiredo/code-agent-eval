@@ -1,4 +1,4 @@
-import { runClaudeCodeEval, scorers } from '../src';
+import { runClaudeCodeEval, BuildSuccessScorer } from '../src';
 
 async function main() {
   console.log('Running Phase 1 eval example...\n');
@@ -16,7 +16,7 @@ async function main() {
       '/Users/pedro.figueiredo/Documents/git/personal/todo-guardian-pro-supabasejs', // Use this project as template
     iterations: 1,
     // execution defaults to sequential
-    scorers: [scorers.buildSuccess()],
+    scorers: [new BuildSuccessScorer()],
     tempDirCleanup: 'never', // Keep temp directory for inspection ('always' | 'on-failure' | 'never')
     environmentVariables: {
       VITE_STACK_PROJECT_ID: 'fc07f8c9-ff33-4a43-828e-25842cbf385d',

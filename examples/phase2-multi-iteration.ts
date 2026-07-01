@@ -1,4 +1,4 @@
-import { runClaudeCodeEval, scorers } from '../src';
+import { runClaudeCodeEval, BuildSuccessScorer, TestSuccessScorer } from '../src';
 
 async function main() {
   console.log('Running Phase 2 multi-iteration eval with environment variables...\n');
@@ -19,7 +19,7 @@ async function main() {
       API_URL: 'https://test-api.example.com',
       LOG_LEVEL: 'debug'
     },
-    scorers: [scorers.buildSuccess()],
+    scorers: [new BuildSuccessScorer()],
   });
 
   console.log('Result 1 - Pass Rate:', (result1.aggregateScores._overall.passRate * 100).toFixed(1) + '%');
@@ -42,7 +42,7 @@ async function main() {
       SEED: String(context.iteration * 42), // Reproducible randomness
       TIMESTAMP: new Date().toISOString()
     }),
-    scorers: [scorers.buildSuccess(), scorers.testSuccess()],
+    scorers: [new BuildSuccessScorer(), new TestSuccessScorer()],
   });
 
   console.log('Result 2 - Pass Rate:', (result2.aggregateScores._overall.passRate * 100).toFixed(1) + '%');
@@ -68,7 +68,7 @@ async function main() {
         ITERATION: String(context.iteration)
       };
     },
-    scorers: [scorers.buildSuccess()],
+    scorers: [new BuildSuccessScorer()],
     tempDirCleanup: 'never', // Keep temp dirs to inspect generated .env files ('always' | 'on-failure' | 'never')
   });
 

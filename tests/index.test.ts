@@ -47,13 +47,22 @@ describe('Type Exports', () => {
 });
 
 describe('Scorers Export', () => {
-  test('scorers are exported', async () => {
-    const { scorers } = await import('../src');
+  test('scorer classes are exported', async () => {
+    const { BaseScorer, BuildSuccessScorer, TestSuccessScorer, LintSuccessScorer, SkillPickedUpScorer } = await import('../src');
 
-    // Verify scorers are available
-    expect(scorers).toBeDefined();
-    expect(typeof scorers.buildSuccess).toBe('function');
-    expect(typeof scorers.testSuccess).toBe('function');
-    expect(typeof scorers.lintSuccess).toBe('function');
+    expect(BaseScorer).toBeDefined();
+    expect(BuildSuccessScorer).toBeDefined();
+    expect(TestSuccessScorer).toBeDefined();
+    expect(LintSuccessScorer).toBeDefined();
+    expect(SkillPickedUpScorer).toBeDefined();
+  });
+
+  test('built-in scorers are instances of BaseScorer', async () => {
+    const { BaseScorer, BuildSuccessScorer, TestSuccessScorer, LintSuccessScorer, SkillPickedUpScorer } = await import('../src');
+
+    expect(new BuildSuccessScorer()).toBeInstanceOf(BaseScorer);
+    expect(new TestSuccessScorer()).toBeInstanceOf(BaseScorer);
+    expect(new LintSuccessScorer()).toBeInstanceOf(BaseScorer);
+    expect(new SkillPickedUpScorer('test')).toBeInstanceOf(BaseScorer);
   });
 });
