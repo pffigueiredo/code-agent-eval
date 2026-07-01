@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { resolveOutputMode } from '../src/agent-detect';
 
-const CLI = path.resolve('dist/cli.js');
+const CLI = path.resolve('dist/cli.mjs');
 const EVAL_FILE = path.resolve('examples/cli-test.ts');
 
 // Helper: run CLI and return stdout, stderr, exitCode (never throws on non-zero)
