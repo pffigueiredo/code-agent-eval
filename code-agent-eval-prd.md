@@ -189,9 +189,9 @@ const comparison = await comparePrompts({
   projectDir: './my-app',
   iterations: 5,
   scorers: [
-    scorers.buildSuccess(),
-    scorers.testSuccess(),
-    scorers.codeQuality({ criteria: 'TypeScript best practices' })
+    new BuildSuccessScorer(),
+    new TestSuccessScorer(),
+    new CodeQualityScorer({ criteria: 'TypeScript best practices' })
   ]
 });
 
@@ -303,7 +303,7 @@ claude-code-evals/
 
 **Testing a Single Prompt**:
 ```typescript
-import { runEval, scorers } from 'claude-code-evals';
+import { runEval, BuildSuccessScorer, TestSuccessScorer, CodeQualityScorer } from 'claude-code-evals';
 
 // Test vendor's integration prompt
 const result = await runEval({
@@ -312,9 +312,9 @@ const result = await runEval({
   projectDir: './my-nextjs-app', // User's actual project
   iterations: 5,
   scorers: [
-    scorers.buildSuccess(),
-    scorers.testSuccess(),
-    scorers.codeQuality({ criteria: 'Uses TypeScript best practices' })
+    new BuildSuccessScorer(),
+    new TestSuccessScorer(),
+    new CodeQualityScorer({ criteria: 'Uses TypeScript best practices' })
   ]
 });
 
@@ -324,7 +324,7 @@ console.log(`Avg score: ${result.summary.avgScore}`);
 
 **A/B Testing Multiple Prompts**:
 ```typescript
-import { comparePrompts, scorers } from 'claude-code-evals';
+import { comparePrompts, BuildSuccessScorer, TestSuccessScorer } from 'claude-code-evals';
 
 const comparison = await comparePrompts({
   name: 'auth-prompt-comparison',
@@ -334,7 +334,7 @@ const comparison = await comparePrompts({
   },
   projectDir: './my-app',
   iterations: 5,
-  scorers: [scorers.buildSuccess(), scorers.testSuccess()]
+  scorers: [new BuildSuccessScorer(), new TestSuccessScorer()]
 });
 
 console.log(`Winner: ${comparison.winner}`); // 'custom-detailed'
