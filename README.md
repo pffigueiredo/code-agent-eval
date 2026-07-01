@@ -78,7 +78,7 @@ pnpm dlx tsx examples/parallel-execution.ts
 pnpm dlx tsx examples/multi-prompt-parallel.ts
 pnpm dlx tsx examples/results-export.ts
 pnpm dlx tsx examples/plugin-execution.ts
-node dist/cli.js --eval-file ./examples/cli-test.ts   # after pnpm run build
+node dist/cli.mjs --eval-file ./examples/cli-test.ts   # after pnpm run build
 ```
 
 ## Releasing

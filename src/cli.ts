@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { parseArgs, format } from 'node:util';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';

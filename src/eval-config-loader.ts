@@ -59,7 +59,7 @@ export function resolveLibraryEntry(): string {
   try {
     return require.resolve('code-agent-eval');
   } catch {
-    return path.join(__dirname, 'index.js');
+    return path.join(__dirname, 'index.mjs');
   }
 }
 
