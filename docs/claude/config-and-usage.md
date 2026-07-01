@@ -14,7 +14,7 @@ Related: docs/claude/scorers.md (scorer patterns), docs/claude/architecture-and-
   projectDir: string;                  // Source project path
   iterations?: number;                 // Default: 1 (per prompt)
   execution?: ExecutionConfig;         // Default: { mode: 'sequential' }
-  timeout?: number;                    // Default: 5 min
+  timeout?: number;                    // Per-iteration deadline (ms). Default: 600000 (10 min)
   scorers?: Scorer[];                  // Default: []
   verbose?: boolean;                   // Default: false (show SDK logs)
   tempDirCleanup?: TempDirCleanup;     // Default: 'always' ('always' | 'on-failure' | 'never')

@@ -51,6 +51,18 @@ export interface EvalConfig {
 }
 
 /**
+ * Rejects as soon as `signal` aborts. Used to bound work that has no native
+ * abort support (e.g. dependency install) via Promise.race.
+ */
+function rejectOnAbort(signal: AbortSignal): Promise<never> {
+  return new Promise((_, reject) => {
+    const fail = () => reject(new Error('Aborted'));
+    if (signal.aborted) return fail();
+    signal.addEventListener('abort', fail, { once: true });
+  });
+}
+
+/**
  * Format a tool invocation with key parameters
  */
 function formatToolInvocation(toolName: string, input: any): string {
@@ -287,6 +299,16 @@ async function runSingleIteration(
   // Track success status for cleanup logic
   let iterationSuccess = false;
 
+  // Bound the whole iteration (install + agent run) with a single deadline.
+  // The SDK aborts on this signal; install races against it too.
+  const timeoutMs = config.timeout ?? 600000;
+  const abortController = new AbortController();
+  let timedOut = false;
+  const timeoutTimer = setTimeout(() => {
+    timedOut = true;
+    abortController.abort();
+  }, timeoutMs);
+
   try {
     // 1. Copy project to temp directory
     console.log(
@@ -311,10 +333,10 @@ async function runSingleIteration(
         `[Iteration ${context.iteration}] Installing dependencies...`
       );
       try {
-        const { packageManager } = await installProjectDependencies(
-          tempDir,
-          !config.verbose
-        );
+        const { packageManager } = await Promise.race([
+          installProjectDependencies(tempDir, !config.verbose),
+          rejectOnAbort(abortController.signal),
+        ]);
         console.log(
           `[Iteration ${context.iteration}] Installed dependencies with ${packageManager}`
         );
@@ -385,6 +407,9 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
           ...config.claudeCodeOptions,
           // systemPrompt must come after spread to ensure concatenation works
           systemPrompt,
+          // abortController must come after spread so our timeout is never
+          // clobbered by a user-supplied controller.
+          abortController,
         },
       });
 
@@ -424,6 +449,12 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
             console.log(formatted);
           }
         }
+      }
+
+      // Aborting the SDK may end the generator without throwing; surface the
+      // timeout explicitly so the iteration is marked failed with a clear error.
+      if (timedOut) {
+        throw new Error(`Iteration timed out after ${timeoutMs}ms`);
       }
       const agentOutput = JSON.stringify(allMessages);
 
@@ -481,6 +512,11 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
       process.env = originalEnv;
     }
   } catch (error) {
+    const message = timedOut
+      ? `Iteration timed out after ${timeoutMs}ms`
+      : error instanceof Error
+        ? error.message
+        : String(error);
     return {
       iterationId: context.iteration,
       promptId,
@@ -488,10 +524,12 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
       duration: Date.now() - startTime,
       scores: {},
       agentOutput: '', // No agent output available in error case
-      error: error instanceof Error ? error.message : String(error),
+      error: message,
       environmentVariables: envVars,
     };
   } finally {
+    clearTimeout(timeoutTimer);
+
     // 7. Cleanup based on tempDirCleanup mode
     const cleanupMode = config.tempDirCleanup || 'always';
     const shouldKeepTempDir =
