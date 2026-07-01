@@ -36,20 +36,25 @@ jobs:
             echo "disttag=latest" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Set up pnpm
+        if: steps.v.outputs.exists == 'false'
+        uses: pnpm/action-setup@v4
+
       - name: Set up Node
         if: steps.v.outputs.exists == 'false'
         uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+          cache: pnpm
 
       - name: Install, build, test
         if: steps.v.outputs.exists == 'false'
         run: |
-          npm ci
-          npm run typecheck
-          npm run test run
-          npm run build
+          pnpm install --frozen-lockfile
+          pnpm run typecheck
+          pnpm test -- run
+          pnpm run build
 
       - name: Publish to npm (with provenance)
         if: steps.v.outputs.exists == 'false'

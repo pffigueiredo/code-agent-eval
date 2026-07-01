@@ -4,6 +4,7 @@
   "description": "TypeScript library for evaluating prompts against coding agents (Claude Code, Cursor, etc.) with multi-iteration testing and scoring",
   "type": "module",
   "license": "MIT",
+  "packageManager": "pnpm@10.33.0",
   "homepage": "https://github.com/pffigueiredo/code-agent-eval#readme",
   "bugs": {
     "url": "https://github.com/pffigueiredo/code-agent-eval/issues"
