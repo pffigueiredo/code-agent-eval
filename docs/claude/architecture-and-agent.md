@@ -36,16 +36,17 @@ Currently uses `@anthropic-ai/claude-agent-sdk`:
 - Auto-handles tool calls (read/write/edit)
 
 **Automated eval mode**:
-- `permissionMode: 'bypassPermissions'` - auto-approves all file ops
+- `permissionMode: 'bypassPermissions'` - auto-approves all file ops (SDK 0.3+ also needs `allowDangerouslySkipPermissions: true`)
 - Special system prompt - instructs agent to never ask questions, make all decisions independently
 - Safe because runs in isolated temp dirs
 - Override via `claudeCodeOptions` if needed (passthrough to Agent SDK `query()`)
+- **Permission denials despite bypass**: a managed-settings policy with `disableBypassPermissionsMode` (common on corp machines) blocks bypass mode. Workaround per-eval: `claudeCodeOptions: { permissionMode: 'acceptEdits' }` — auto-accepts edits and isn't gated by that policy.
 
 ## Temp Directory Isolation
 
 - Each run: `{os.tmpdir()}/eval-{uuid}`
 - Node modules skipped during copy
-- Deps auto-installed after copy (10-min timeout)
+- Deps auto-installed after copy via `nypm`
 - Git initialized if not present
 - Original `projectDir` never modified
 - Cleanup controlled by `tempDirCleanup`:
