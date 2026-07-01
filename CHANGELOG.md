@@ -5,21 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.1-alpha.8] - 2026-07-01
 
-### Changed
-- **BREAKING:** Scorers are now class-based. Replace factory calls with constructors: `scorers.buildSuccess()` → `new BuildSuccessScorer()`, `scorers.testSuccess()` → `new TestSuccessScorer()`, `scorers.lintSuccess()` → `new LintSuccessScorer()`, `scorers.skillPickedUp()` → `new SkillPickedUpScorer()`. Custom scorers extend the new `BaseScorer` abstract class instead of `createScorer()`.
-- Bump `@anthropic-ai/claude-agent-sdk` to `0.3.187`; add `@anthropic-ai/sdk` and `@modelcontextprotocol/sdk` as direct dependencies (now required as peers by the `0.3.x` SDK)
+[compare changes](https://github.com/pffigueiredo/code-agent-eval/compare/v0.0.1-alpha.7...v0.0.1-alpha.8)
 
-### Removed
-- **BREAKING:** `scorers` namespace export and `createScorer()` factory — use the exported scorer classes and `BaseScorer` instead
+### 🚀 Enhancements
 
-### Added
-- `BaseScorer` abstract class and `BuildSuccessScorer`, `TestSuccessScorer`, `LintSuccessScorer`, `SkillPickedUpScorer` class exports
-- `zod-scorer-check` tests verifying class instances survive config schema validation
+- **runner:** Enforce EvalConfig.timeout per iteration ([#6](https://github.com/pffigueiredo/code-agent-eval/pull/6))
 
-### Fixed
-- Config validation stripped scorer class instances to plain objects (`z.object` → `z.custom`), which broke `SkillPickedUpScorer`
+### 🩹 Fixes
+
+- **runner:** Honor bypass permissions on SDK 0.3 + capture agent-created files ([#4](https://github.com/pffigueiredo/code-agent-eval/pull/4))
+- Config validation stripped scorer class instances to plain objects (`z.object` → `z.custom`), which broke `SkillPickedUpScorer` ([#3](https://github.com/pffigueiredo/code-agent-eval/pull/3))
+
+### 💅 Refactors
+
+- **BREAKING:** Class-based scorers — replace factory calls with constructors (`new BuildSuccessScorer()`, `new TestSuccessScorer()`, `new LintSuccessScorer()`, `new SkillPickedUpScorer()`); custom scorers extend the new `BaseScorer` abstract class instead of `createScorer()`. The `scorers` namespace export and `createScorer()` factory are removed ([#3](https://github.com/pffigueiredo/code-agent-eval/pull/3))
+
+### 🏡 Chore
+
+- Automate releases via CI (bumpp + changelogen + GitHub Release) ([#2](https://github.com/pffigueiredo/code-agent-eval/pull/2))
+- **deps:** Upgrade dependencies + replace package-manager with nypm; bump `@anthropic-ai/claude-agent-sdk` to `0.3.187`, add `@anthropic-ai/sdk` + `@modelcontextprotocol/sdk` as direct deps ([#5](https://github.com/pffigueiredo/code-agent-eval/pull/5))
+- **deps:** Bump tsdown 0.15.9 → 0.22.3, migrate build output to `.mjs`/`.d.mts` ([#7](https://github.com/pffigueiredo/code-agent-eval/pull/7))
+
+### ❤️ Contributors
+
+- Pedro Figueiredo <klisarkk@gmail.com>
 
 ## [0.0.1-alpha.7] - 2026-03-28
 
