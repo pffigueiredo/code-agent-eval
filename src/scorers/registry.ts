@@ -4,7 +4,7 @@ import { SkillPickedUpScorer } from './agent';
 import { FileScorer } from './file';
 import { DiffContainsScorer } from './diff';
 import { clampScore } from './factories';
-import { resolveLibraryEntry } from '../eval-config-loader';
+import { resolveLibraryEntry } from '../resolve-entry';
 import type { ScorerSpec, ScriptScorerSpec } from './schema';
 
 async function importScriptDefault(scriptPath: string): Promise<unknown> {

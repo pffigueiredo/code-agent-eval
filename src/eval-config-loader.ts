@@ -1,32 +1,16 @@
-import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { EvalConfig } from './runner';
 import { evalConfigSchema, jsonConfigSchema } from './scorers/schema';
 import type { ScriptScorerSpec, ScorerSpec } from './scorers/schema';
 import { compileScorer } from './scorers/registry';
+import { resolveLibraryEntry } from './resolve-entry';
 
 export { evalConfigSchema }; // back-compat: tests import from here
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const require = createRequire(import.meta.url);
+export { resolveLibraryEntry }; // back-compat: re-export after extraction
 
 /** Eval scripts: TS/JS extensions that may import npm packages (needs jiti + alias). */
 const EVAL_SCRIPT_RE = /\.([mc]?tsx?|[mc]?jsx?)$/i;
-
-/**
- * Entry file for this package, from the CLI module's perspective.
- * Ensures eval files can `import from 'code-agent-eval'` under `npx` without a project-local install.
- */
-export function resolveLibraryEntry(): string {
-  try {
-    return require.resolve('code-agent-eval');
-  } catch {
-    return path.join(__dirname, 'index.mjs');
-  }
-}
 
 function formatIssues(error: { issues: { path: PropertyKey[]; message: string }[] }): string {
   return error.issues.map((i) => `  - ${i.path.map(String).join('.')}: ${i.message}`).join('\n');
