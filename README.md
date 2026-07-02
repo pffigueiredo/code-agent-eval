@@ -19,7 +19,7 @@ The fastest path — no TypeScript, no build step. Get the schema:
 npx code-agent-eval --print-schema
 ```
 
-Or reference it inline (enables editor autocomplete + validation):
+In your `eval.json`, set `"$schema": "https://unpkg.com/code-agent-eval/schema.json"` (not the URL printed inside the schema output) so editors bind autocomplete + validation:
 
 ```json
 {
