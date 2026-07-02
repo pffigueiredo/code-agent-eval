@@ -4,145 +4,160 @@
  * `.claude/skills`, `.claude/commands`, hooks, subagents, etc.) so they copy with the project;
  * see docs/claude/config-and-usage.md.
  */
-import path from 'path';
-import { EvalConfig, runClaudeCodeEval, BaseScorer, BuildSuccessScorer } from '../src';
-import type { ScorerContext, ScorerResult } from '../src';
+import path from "node:path";
+import type { ScorerContext, ScorerResult } from "../src";
+import {
+	BaseScorer,
+	BuildSuccessScorer,
+	type EvalConfig,
+	runClaudeCodeEval,
+} from "../src";
 
 class AddNeonDocsSkillUsedScorer extends BaseScorer {
-  readonly name = 'add-neon-docs-skill-used';
+	readonly name = "add-neon-docs-skill-used";
 
-  async evaluate({ agentOutput }: ScorerContext): Promise<ScorerResult> {
-    const messages = JSON.parse(agentOutput);
+	async evaluate({ agentOutput }: ScorerContext): Promise<ScorerResult> {
+		const messages = JSON.parse(agentOutput);
 
-    // Check if any assistant message contains the Skill tool_use
-    const skillUsed = messages.some((msg: any) => {
-      // Check for assistant messages with content
-      if (msg.type !== 'assistant' || !msg.message?.content) {
-        return false;
-      }
+		// Check if any assistant message contains the Skill tool_use
+		const skillUsed = (messages as unknown[]).some((msg) => {
+			if (
+				msg == null ||
+				typeof msg !== "object" ||
+				(msg as Record<string, unknown>).type !== "assistant"
+			)
+				return false;
+			const msgContent = (msg as Record<string, unknown>).message;
+			if (msgContent == null || typeof msgContent !== "object") return false;
+			const content = (msgContent as Record<string, unknown>).content;
+			if (!Array.isArray(content)) return false;
 
-      // Check if any content item is a Skill tool use with our command
-      return msg.message.content.some(
-        (content: any) =>
-          content.type === 'tool_use' &&
-          content.name === 'Skill' &&
-          content.input?.command?.includes('neon-plugin:add-neon-docs')
-      );
-    });
+			// Check if any content item is a Skill tool use with our command
+			return content.some((block) => {
+				if (block == null || typeof block !== "object") return false;
+				const b = block as Record<string, unknown>;
+				if (b.type !== "tool_use" || b.name !== "Skill") return false;
+				const input = b.input as Record<string, unknown> | undefined;
+				return (
+					typeof input?.command === "string" &&
+					input.command.includes("neon-plugin:add-neon-docs")
+				);
+			});
+		});
 
-    if (skillUsed) {
-      return {
-        score: 1.0,
-        reason: 'add-neon-docs skill used',
-      };
-    } else {
-      return {
-        score: 0.0,
-        reason: 'add-neon-docs skill not used',
-      };
-    }
-  }
+		if (skillUsed) {
+			return {
+				score: 1.0,
+				reason: "add-neon-docs skill used",
+			};
+		} else {
+			return {
+				score: 0.0,
+				reason: "add-neon-docs skill not used",
+			};
+		}
+	}
 }
 
 class ClaudeMdAddedScorer extends BaseScorer {
-  readonly name = 'claude-md-added-to-project';
+	readonly name = "claude-md-added-to-project";
 
-  async evaluate({ workingDir }: ScorerContext): Promise<ScorerResult> {
-    // Check if CLAUDE.md exists with correct content (handles both CLAUDE.md and claude.md)
-    const fs = await import('fs/promises');
-    const path = await import('path');
+	async evaluate({ workingDir }: ScorerContext): Promise<ScorerResult> {
+		// Check if CLAUDE.md exists with correct content (handles both CLAUDE.md and claude.md)
+		const fs = await import("node:fs/promises");
+		const path = await import("node:path");
 
-    try {
-      // Try both common names
-      let content: string;
-      try {
-        content = await fs.readFile(
-          path.join(workingDir, 'CLAUDE.md'),
-          'utf-8'
-        );
-      } catch {
-        content = await fs.readFile(
-          path.join(workingDir, 'claude.md'),
-          'utf-8'
-        );
-      }
+		try {
+			// Try both common names
+			let content: string;
+			try {
+				content = await fs.readFile(
+					path.join(workingDir, "CLAUDE.md"),
+					"utf-8",
+				);
+			} catch {
+				content = await fs.readFile(
+					path.join(workingDir, "claude.md"),
+					"utf-8",
+				);
+			}
 
-      const hasNeonDrizzleDocs = content.includes(
-        'https://raw.githubusercontent.com/neondatabase-labs/ai-rules/main/neon-drizzle.mdc'
-      );
+			const hasNeonDrizzleDocs = content.includes(
+				"https://raw.githubusercontent.com/neondatabase-labs/ai-rules/main/neon-drizzle.mdc",
+			);
 
-      if (hasNeonDrizzleDocs) {
-        return {
-          score: 1.0,
-          reason:
-            'CLAUDE.md exists with correct neon-drizzle documentation reference',
-        };
-      } else {
-        return {
-          score: 0.5,
-          reason:
-            'CLAUDE.md exists but missing neon-drizzle documentation reference',
-          metadata: {
-            hint: 'Expected URL: https://raw.githubusercontent.com/.../neon-drizzle.mdc',
-          },
-        };
-      }
-    } catch (error) {
-      return {
-        score: 0.0,
-        reason: 'CLAUDE.md file not found in project',
-      };
-    }
-  }
+			if (hasNeonDrizzleDocs) {
+				return {
+					score: 1.0,
+					reason:
+						"CLAUDE.md exists with correct neon-drizzle documentation reference",
+				};
+			} else {
+				return {
+					score: 0.5,
+					reason:
+						"CLAUDE.md exists but missing neon-drizzle documentation reference",
+					metadata: {
+						hint: "Expected URL: https://raw.githubusercontent.com/.../neon-drizzle.mdc",
+					},
+				};
+			}
+		} catch (_error) {
+			return {
+				score: 0.0,
+				reason: "CLAUDE.md file not found in project",
+			};
+		}
+	}
 }
 
 async function main() {
-  console.log('Comparing execution modes...\n');
+	console.log("Comparing execution modes...\n");
 
-  const baseConfig: EvalConfig = {
-    name: 'check-add-neon-docs-skill-used',
-    prompts: [
-      {
-        id: 'neon-drizzle-docs',
-        prompt: 'Add docs about neon and drizzle.',
-      },
-      {
-        id: 'neon-drizzle-best-practices',
-        prompt: 'Add best practices docs about neon and drizzle.',
-      },
-    ],
-    projectDir:
-      '/Users/pedro.figueiredo/Documents/git/personal/todo-guardian-pro-supabasejs',
-    iterations: 2,
-    scorers: [
-      new BuildSuccessScorer(),
-      new AddNeonDocsSkillUsedScorer(),
-      new ClaudeMdAddedScorer(),
-    ],
-    tempDirCleanup: 'never', // Keep temp directory for inspection ('always' | 'on-failure' | 'never')
-    claudeCodeOptions: {
-      plugins: [
-        {
-          type: 'local',
-          path: '/Users/pedro.figueiredo/Documents/git/neon/ai-rules/neon-plugin',
-        },
-      ],
-    },
-    resultsDir: path.join(process.cwd(), 'eval-results'),
-  };
+	const baseConfig: EvalConfig = {
+		name: "check-add-neon-docs-skill-used",
+		prompts: [
+			{
+				id: "neon-drizzle-docs",
+				prompt: "Add docs about neon and drizzle.",
+			},
+			{
+				id: "neon-drizzle-best-practices",
+				prompt: "Add best practices docs about neon and drizzle.",
+			},
+		],
+		projectDir:
+			"/Users/pedro.figueiredo/Documents/git/personal/todo-guardian-pro-supabasejs",
+		iterations: 2,
+		scorers: [
+			new BuildSuccessScorer(),
+			new AddNeonDocsSkillUsedScorer(),
+			new ClaudeMdAddedScorer(),
+		],
+		tempDirCleanup: "never", // Keep temp directory for inspection ('always' | 'on-failure' | 'never')
+		claudeCodeOptions: {
+			plugins: [
+				{
+					type: "local",
+					path: "/Users/pedro.figueiredo/Documents/git/neon/ai-rules/neon-plugin",
+				},
+			],
+		},
+		resultsDir: path.join(process.cwd(), "eval-results"),
+	};
 
-  // Parallel
-  console.log('=== PARALLEL ===');
-  const start2 = Date.now();
-  const result2 = await runClaudeCodeEval({
-    ...baseConfig,
-    execution: { mode: 'parallel' },
-  });
-  console.log(`Duration: ${(Date.now() - start2) / 1000}s\n`);
+	// Parallel
+	console.log("=== PARALLEL ===");
+	const start2 = Date.now();
+	const _result2 = await runClaudeCodeEval({
+		...baseConfig,
+		execution: { mode: "parallel" },
+	});
+	console.log(`Duration: ${(Date.now() - start2) / 1000}s\n`);
 
-  // Print comparison
-  console.log('=== PERFORMANCE COMPARISON ===');
-  console.log(`Parallel:        ${(Date.now() - start2) / 1000}s`);
+	// Print comparison
+	console.log("=== PERFORMANCE COMPARISON ===");
+	console.log(`Parallel:        ${(Date.now() - start2) / 1000}s`);
 }
 
 main().catch(console.error);

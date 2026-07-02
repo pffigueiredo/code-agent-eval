@@ -51,7 +51,9 @@
     "dev": "tsdown --watch",
     "test": "vitest",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm run typecheck && pnpm run build && pnpm test -- run",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run build && pnpm test -- run",
     "release:prepare": "bumpp --no-commit --no-tag --no-push && git checkout -b \"release/$(node -p \"require('./package.json').version\")\" && changelogen --output CHANGELOG.md"
   },
   "engines": {
@@ -69,6 +71,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.1",
     "@types/fs-extra": "11.0.4",
     "@types/node": "24.9.1",
     "bumpp": "11.1.0",
