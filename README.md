@@ -185,9 +185,9 @@ pnpm run release:prepare   # bump version, create release branch, write CHANGELO
 
 On merge to `main`, CI tags `vX.Y.Z`, publishes to npm, and creates a GitHub Release.
 Prereleases publish under their label dist-tag (e.g. `alpha`); while no stable
-version exists, `latest` is also advanced to the newest release so a plain
-`npm install code-agent-eval` resolves to it. Once a stable version owns `latest`,
-prereleases stop advancing it.
+version owns `latest`, the newest prerelease publishes under `latest` too so a
+plain `npm install code-agent-eval` resolves to it. Once a stable version owns
+`latest`, prereleases go back to their label only.
 
 ## Documentation
 
