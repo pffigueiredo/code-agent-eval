@@ -44,7 +44,7 @@ jobs:
         if: steps.v.outputs.exists == 'false'
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           registry-url: https://registry.npmjs.org
           cache: pnpm
 
