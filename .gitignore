@@ -9,3 +9,5 @@ eval-results
 thoughts/shared/plans
 # Riptide artifacts (cloud-synced)
 .humanlayer/tasks/
+# Local, private Claude memory (never commit)
+CLAUDE.local.md
