@@ -56,6 +56,8 @@ jobs:
           pnpm run lint
           pnpm run knip
           pnpm run build
+          pnpm run publint
+          pnpm run attw
           pnpm test -- run
 
       - name: Publish to npm (with provenance)
