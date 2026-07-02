@@ -51,7 +51,17 @@
     "dev": "tsdown --watch",
     "test": "vitest",
     "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "knip": "knip",
+    "publint": "publint --strict",
+    "attw": "attw --pack .",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run knip && pnpm run build && pnpm run publint && pnpm run attw && pnpm test -- run",
+    "prepublishOnly": "pnpm run build && pnpm run publint && pnpm run attw",
     "release:prepare": "bumpp --no-commit --no-tag --no-push && git checkout -b \"release/$(node -p \"require('./package.json').version\")\" && changelogen --output CHANGELOG.md"
+  },
+  "engines": {
+    "node": ">=22"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.187",
@@ -65,10 +75,14 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.4",
+    "@biomejs/biome": "2.5.1",
     "@types/fs-extra": "11.0.4",
     "@types/node": "24.9.1",
     "bumpp": "11.1.0",
     "changelogen": "0.6.2",
+    "knip": "6.20.0",
+    "publint": "0.3.21",
     "tsdown": "0.22.3",
     "typescript": "6.0.3",
     "vitest": "4.1.9"

@@ -1,4 +1,4 @@
-import type { Scorer, ScorerContext, ScorerResult } from '../types';
+import type { Scorer, ScorerContext, ScorerResult } from "../types";
 
 /**
  * Abstract base class for all scorers. Extend this to create custom scorers.
@@ -17,6 +17,6 @@ import type { Scorer, ScorerContext, ScorerResult } from '../types';
  * ```
  */
 export abstract class BaseScorer implements Scorer {
-  abstract readonly name: string;
-  abstract evaluate(context: ScorerContext): Promise<ScorerResult>;
+	abstract readonly name: string;
+	abstract evaluate(context: ScorerContext): Promise<ScorerResult>;
 }
