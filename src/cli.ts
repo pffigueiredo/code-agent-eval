@@ -41,7 +41,7 @@ const help = `code-agent-eval v${version} - Evaluate coding agents with structur
 Usage: code-agent-eval --eval-file <path> [options]
 
 Options:
-  --eval-file <path>     Path to eval config file (.ts/.js)
+  --eval-file <path>     Path to eval config file (.json / .jsonl / .ts / .js)
   --iterations <n>       Override iteration count
   --verbose              Enable verbose logging
   --results-dir <path>   Override results directory
@@ -60,11 +60,16 @@ Environment variables:
   CODE_AGENT_EVAL_AGENT_DETECT   Set to "0" to disable agent detection
 
 Examples:
-  $ code-agent-eval --eval-file ./evals/health-check.ts
+  $ code-agent-eval --eval-file ./evals/health-check.json
   $ code-agent-eval --eval-file ./evals/refactor.ts --iterations 5
-  $ code-agent-eval --eval-file ./evals/refactor.ts --dry-run
+  $ code-agent-eval --eval-file ./evals/refactor.json --dry-run
   $ code-agent-eval --eval-file ./evals/refactor.ts --json > results.json
   $ code-agent-eval --eval-file ./evals/refactor.ts --results-dir ./out
+
+Authoring evals: JSON is the primary format — write eval.json with
+"$schema": "https://unpkg.com/code-agent-eval/schema.json", or run
+--print-schema to get the schema, then validate with --dry-run.
+The .ts/.js path remains for custom (function) scorers.
 `;
 
 // --- Main ---

@@ -52,6 +52,14 @@ describe('CLI: --help', () => {
     expect(stdout).toContain('--no-agent-detect');
     expect(stdout).toContain('CODE_AGENT_EVAL_AGENT_DETECT');
   });
+
+  it('documents the JSON authoring workflow', async () => {
+    const { stdout } = await run(['--help']);
+    expect(stdout).toContain('.json');
+    expect(stdout).toContain('--print-schema');
+    // a .json example line
+    expect(stdout).toMatch(/--eval-file \S+\.json/);
+  });
 });
 
 describe('CLI: --show-skill', () => {
