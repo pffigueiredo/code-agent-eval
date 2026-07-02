@@ -98,4 +98,13 @@ describe('compileScorer', () => {
     const r = await s.evaluate(ctx());
     expect(r.score).toBe(1);
   });
+
+  it('script maps a NaN default-export score to 0 instead of leaking NaN', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'reg-script-'));
+    const scriptPath = path.join(dir, 'nan.mjs');
+    fs.writeFileSync(scriptPath, "export default async () => ({ score: NaN, reason: 'x' });\n");
+    const s = compileScorer({ type: 'script', name: 'nan', path: scriptPath });
+    const r = await s.evaluate(ctx());
+    expect(r.score).toBe(0);
+  });
 });
