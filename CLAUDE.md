@@ -30,13 +30,18 @@ pnpm dlx tsx examples/plugin-execution.ts|plugin example
 - `src/types.ts` — `EvalConfig`, `EvalResult`, `Scorer`, etc.
 - `src/index.ts` — public exports
 - `src/scorers/` — `BaseScorer` abstract class + built-in scorer classes
+- `src/scorers/schema.ts` — `jsonConfigSchema` (JSON path), `scorerSpecSchema` (discriminated union), `baseConfigShape`
+- `src/scorers/registry.ts` — `compileScorer(spec)` / `compileScorers(specs)` — spec → `Scorer` instance
 
 ## Must-know
 
 - **v2.0:** Config uses `prompts: Array<{ id, prompt }>`, not a single `prompt` string (one prompt ⇒ array of one).
+- **JSON format:** Agents should author `eval.json` with `$schema: "https://unpkg.com/code-agent-eval/schema.json"`. Scorer types: `build|test|lint|command|file|diff-contains|skill-picked-up|all|any|script`. Get schema with `--print-schema`; validate with `--dry-run`.
+- **Schema split:** `evalConfigSchema` = TS path (allows function scorers); `jsonConfigSchema` = JSON path (structural union, `z.toJSONSchema`-safe). Both live in `src/scorers/schema.ts`.
+- **`schema.json`:** Generated at build time (`pnpm run build` runs `scripts/gen-schema.ts`); shipped in the npm package.
 - **Env:** `ANTHROPIC_API_KEY` required for the Claude Agent SDK.
 - **Plugins:** Only relative paths for project files; do not leave the working directory; treat plugin absolute paths as metadata, not write targets.
-- **Tests:** `pnpm run test`; suites include `tests/index.test.ts`, `tests/env-vars.test.ts`, `tests/install-deps.test.ts`, `tests/execution-modes.test.ts`, `tests/results-writer.test.ts`, `tests/base-scorer.test.ts`, `tests/agent-scorers.test.ts`. Integration checks: run the `pnpm dlx tsx examples/...` commands above.
+- **Tests:** `pnpm run test`; suites include `tests/index.test.ts`, `tests/env-vars.test.ts`, `tests/install-deps.test.ts`, `tests/execution-modes.test.ts`, `tests/results-writer.test.ts`, `tests/base-scorer.test.ts`, `tests/agent-scorers.test.ts`, `tests/registry.test.ts`, `tests/schema-gen.test.ts`, `tests/examples.test.ts`. Integration checks: run the `pnpm dlx tsx examples/...` commands above.
 
 ## Reference (read when needed)
 
@@ -52,4 +57,4 @@ pnpm dlx tsx examples/plugin-execution.ts|plugin example
 
 ## Status
 
-Phases 1–3 done; Phase 4 (LLM judges) not done.
+Phases 1–5 done (JSON eval configs, scorer registry, script scorer, --print-schema, docs/examples). Phase 4 product roadmap (LLM judges) not done.
