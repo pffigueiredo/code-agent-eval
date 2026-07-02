@@ -4,10 +4,7 @@ import type { ScorerContext, ScorerResult } from '../types';
 import { BaseScorer } from './base';
 import type { FileScorerSpec } from './schema';
 
-/**
- * Scorer that checks a file in the working dir against ANDed sub-checks
- * (exists / contains / matches / jsonPath). Name auto-derives to `file:<path>`.
- */
+/** Checks a working-dir file against ANDed sub-checks (exists/contains/matches/jsonPath). */
 export class FileScorer extends BaseScorer {
   readonly name: string;
 

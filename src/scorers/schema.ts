@@ -22,7 +22,7 @@ export const baseConfigShape = {
   claudeCodeOptions: z.record(z.string(), z.unknown()).optional(),
 } as const;
 
-/** Recursive scorer spec union (Phase 1 + Phase 2 + Phase 3 types). */
+/** Recursive scorer spec union. */
 export type ScorerSpec =
   | { type: 'build'; name?: string }
   | { type: 'test'; name?: string }
@@ -95,7 +95,7 @@ export type FileScorerSpec = Extract<ScorerSpec, { type: 'file' }>;
 export type DiffScorerSpec = Extract<ScorerSpec, { type: 'diff-contains' }>;
 export type ScriptScorerSpec = Extract<ScorerSpec, { type: 'script' }>;
 
-/** TS path: scorers are functions (existing z.custom form). */
+/** TS path: scorers are functions. */
 export const evalConfigSchema = z.object({
   ...baseConfigShape,
   scorers: z

@@ -1,9 +1,7 @@
 import { execa } from 'execa';
 import type { ScorerResult, ExecCommandOptions } from '../types';
 
-/** Clamp a scorer score into the documented [0, 1] range.
- *  Non-finite inputs never leak: +Infinity → 1, everything else non-finite
- *  (NaN, -Infinity, undefined/null from untyped script modules) → 0. */
+/** Clamp a scorer score into [0, 1]. Non-finite maps to 0, except +Infinity → 1. */
 export function clampScore(score: number): number {
   if (!Number.isFinite(score)) return score === Infinity ? 1 : 0;
   return Math.max(0, Math.min(1, score));

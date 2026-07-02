@@ -6,8 +6,7 @@ import type { ScriptScorerSpec, ScorerSpec } from './scorers/schema';
 import { compileScorer } from './scorers/registry';
 import { resolveLibraryEntry } from './resolve-entry';
 
-export { evalConfigSchema }; // back-compat: tests import from here
-export { resolveLibraryEntry }; // back-compat: re-export after extraction
+export { evalConfigSchema }; // re-exported for test imports
 
 /** Eval scripts: TS/JS extensions that may import npm packages (needs jiti + alias). */
 const EVAL_SCRIPT_RE = /\.([mc]?tsx?|[mc]?jsx?)$/i;
@@ -32,17 +31,14 @@ export async function collectScriptScorers(filePath: string): Promise<ScriptScor
   const resolved = path.resolve(filePath);
   const raw = JSON.parse(await readFile(resolved, 'utf8'));
   const parsed = jsonConfigSchema.safeParse(raw);
-  // Propagate rather than silently returning []: in the dry-run path loadEvalFile
-  // has already validated, so this is unreachable for valid configs — but if the
-  // call order ever changes, a real config error surfaces (as SCORER_INVALID) loudly.
+  // Throw on invalid config so it surfaces as SCORER_INVALID, never a silent [].
   if (!parsed.success) throw new Error(`Invalid eval config:\n${formatIssues(parsed.error)}`);
   const configDir = path.dirname(resolved);
   const specs = (parsed.data.scorers ?? []).map((s) => resolveScriptPath(s, configDir));
   return flattenScripts(specs);
 }
 
-/** Flat-collect all `script` specs from a spec tree (recursing into all/any). Path resolution
- *  is left to `resolveScriptPath`, so callers pass an already-resolved tree. */
+/** Flat-collect all `script` specs from a spec tree (recursing into all/any). */
 function flattenScripts(specs: ScorerSpec[]): ScriptScorerSpec[] {
   const results: ScriptScorerSpec[] = [];
   for (const spec of specs) {
