@@ -103,4 +103,17 @@ describe('jsonConfigSchema (JSON path)', () => {
     const r = jsonConfigSchema.safeParse({ $schema: 'https://x/schema.json', ...base });
     expect(r.success).toBe(true);
   });
+
+  it('rejects empty all `of`', () => {
+    expect(jsonConfigSchema.safeParse({ ...base, scorers: [{ type: 'all', of: [] }] }).success).toBe(false);
+  });
+
+  it('rejects empty any `of`', () => {
+    expect(jsonConfigSchema.safeParse({ ...base, scorers: [{ type: 'any', of: [] }] }).success).toBe(false);
+  });
+
+  it('accepts non-empty all/any `of`', () => {
+    const r = jsonConfigSchema.safeParse({ ...base, scorers: [{ type: 'all', of: [{ type: 'build' }] }] });
+    expect(r.success).toBe(true);
+  });
 });

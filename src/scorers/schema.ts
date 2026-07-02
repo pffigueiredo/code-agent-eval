@@ -78,14 +78,14 @@ export const scorerSpecSchema: z.ZodType<ScorerSpec> = z.discriminatedUnion('typ
     .object({
       type: z.literal('all'),
       name: z.string().optional(),
-      of: z.array(z.lazy(() => scorerSpecSchema)),
+      of: z.array(z.lazy(() => scorerSpecSchema)).nonempty(),
     })
     .strict(),
   z
     .object({
       type: z.literal('any'),
       name: z.string().optional(),
-      of: z.array(z.lazy(() => scorerSpecSchema)),
+      of: z.array(z.lazy(() => scorerSpecSchema)).nonempty(),
     })
     .strict(),
   z.object({ type: z.literal('script'), name: z.string(), path: z.string() }).strict(),
