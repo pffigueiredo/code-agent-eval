@@ -4,11 +4,13 @@ import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { z } from 'zod';
 import { detectAgenticEnvironment } from 'am-i-vibing';
 import { runClaudeCodeEval } from './runner';
 import type { EvalConfig } from './runner';
 import { loadEvalFile, collectScriptScorers } from './eval-config-loader';
 import { validateScriptScorer } from './scorers/registry';
+import { jsonConfigSchema } from './scorers/schema';
 import { resolveOutputMode } from './agent-detect';
 import type { AgentDetectionResult } from './agent-detect';
 
@@ -45,6 +47,7 @@ Options:
   --results-dir <path>   Override results directory
   --json                 Output results as JSON to stdout
   --dry-run              Validate config and show execution plan
+  --print-schema         Print JSON Schema for eval config and exit
   --show-skill           Print agent skill guide (eval config format, scorers, examples)
   --no-agent-detect      Disable automatic AI agent detection
   --help                 Show help
@@ -78,6 +81,7 @@ async function main() {
         json: { type: 'boolean', default: false },
         'dry-run': { type: 'boolean', default: false },
         'agent-detect': { type: 'boolean', default: true },
+        'print-schema': { type: 'boolean', default: false },
         'show-skill': { type: 'boolean', default: false },
         help: { type: 'boolean', default: false },
         version: { type: 'boolean', default: false },
@@ -99,6 +103,11 @@ async function main() {
 
   if (values.help) {
     stdout(help);
+    process.exit(EXIT.SUCCESS);
+  }
+
+  if (values['print-schema']) {
+    process.stdout.write(JSON.stringify(z.toJSONSchema(jsonConfigSchema), null, 2) + '\n');
     process.exit(EXIT.SUCCESS);
   }
 

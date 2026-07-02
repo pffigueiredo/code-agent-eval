@@ -33,7 +33,8 @@
   },
   "files": [
     "dist",
-    "SKILL.md"
+    "SKILL.md",
+    "schema.json"
   ],
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
@@ -46,7 +47,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "npm run typecheck && tsdown",
+    "build": "npm run typecheck && tsdown && pnpm dlx tsx scripts/gen-schema.ts",
     "dev": "tsdown --watch",
     "test": "vitest",
     "typecheck": "tsc --noEmit",

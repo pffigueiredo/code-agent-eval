@@ -438,6 +438,29 @@ describe('CLI: JSON config', () => {
   });
 });
 
+describe('CLI: --print-schema', () => {
+  it('exits 0 and stdout parses as JSON', async () => {
+    const { stdout, exitCode } = await run(['--print-schema']);
+    expect(exitCode).toBe(0);
+    expect(() => JSON.parse(stdout)).not.toThrow();
+  });
+
+  it('schema is strict (additionalProperties false)', async () => {
+    const { stdout } = await run(['--print-schema']);
+    const schema = JSON.parse(stdout);
+    expect(schema.additionalProperties).toBe(false);
+  });
+
+  it('$defs contains all scorer types', async () => {
+    const { stdout } = await run(['--print-schema']);
+    const schema = JSON.parse(stdout);
+    const defsStr = JSON.stringify(schema.$defs ?? schema.definitions ?? schema);
+    for (const type of ['build', 'test', 'lint', 'command', 'file', 'diff-contains', 'skill-picked-up', 'script', 'all', 'any']) {
+      expect(defsStr).toContain(type);
+    }
+  });
+});
+
 describe('CLI: script scorer dry-run validation', () => {
   it('valid script scorer exits 0 with status ok', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-script-'));

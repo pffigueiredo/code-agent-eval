@@ -1,5 +1,6 @@
 node_modules
 dist
+schema.json
 *.log
 .DS_Store
 .serena
