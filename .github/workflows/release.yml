@@ -28,10 +28,21 @@ jobs:
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
-          # dist-tag: prereleases (1.2.3-alpha.0) publish under their label, stable under latest
+          # dist-tag: stable publishes under `latest`. Prereleases publish under
+          # their label (e.g. `alpha`) — but while no stable version owns `latest`
+          # yet, publish the newest prerelease under `latest` too, so a plain
+          # `npm install code-agent-eval` resolves to it. The tag must be decided
+          # here: npm OIDC Trusted Publishing only authorizes `publish`, not a
+          # follow-up `dist-tag add`.
           if [[ "$version" == *-* ]]; then
-            label=${version#*-}   # alpha.0
-            echo "disttag=${label%%.*}" >> "$GITHUB_OUTPUT"  # alpha
+            label=${version#*-}          # alpha.0
+            label=${label%%.*}           # alpha
+            current=$(npm view code-agent-eval dist-tags.latest 2>/dev/null || true)
+            if [[ -z "$current" || "$current" == *-* ]]; then
+              echo "disttag=latest" >> "$GITHUB_OUTPUT"
+            else
+              echo "disttag=$label" >> "$GITHUB_OUTPUT"
+            fi
           else
             echo "disttag=latest" >> "$GITHUB_OUTPUT"
           fi
@@ -66,17 +77,6 @@ jobs:
         run: |
           npm install -g npm@latest # ensure OIDC Trusted Publishing support
           npm publish --provenance --access public --tag ${{ steps.v.outputs.disttag }}
-
-      - name: Point `latest` at this release while pre-stable
-        if: steps.v.outputs.exists == 'false' && steps.v.outputs.disttag != 'latest'
-        run: |
-          # Alpha-only package: keep `latest` on the newest version so a plain
-          # `npm install code-agent-eval` resolves to it. Once a stable version
-          # owns `latest`, stop advancing it from prereleases.
-          current=$(npm view code-agent-eval dist-tags.latest 2>/dev/null || true)
-          if [ -z "$current" ] || [[ "$current" == *-* ]]; then
-            npm dist-tag add "code-agent-eval@${{ steps.v.outputs.version }}" latest
-          fi
 
       - name: Tag the release
         if: steps.v.outputs.exists == 'false'
