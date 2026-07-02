@@ -405,6 +405,39 @@ describe('CLI: agent detection', () => {
   });
 });
 
+describe('CLI: JSON config', () => {
+  it('--dry-run --json prints ok plan with scorer names', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-json-'));
+    const f = path.join(dir, 'eval.json');
+    fs.writeFileSync(
+      f,
+      JSON.stringify({
+        name: 'json-test',
+        prompts: [{ id: 'v1', prompt: 'p' }],
+        projectDir: '.',
+        scorers: [{ type: 'build' }, { type: 'command', name: 'tc', command: 'npm', args: ['run', 'typecheck'] }],
+      })
+    );
+    const { stdout, exitCode } = await run(['--eval-file', f, '--dry-run', '--json']);
+    expect(exitCode).toBe(0);
+    const out = JSON.parse(stdout);
+    expect(out.status).toBe('ok');
+    expect(out.data.scorers).toEqual(['build', 'tc']);
+  });
+
+  it('malformed JSON config yields CONFIG_INVALID (exit 78)', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-json-'));
+    const f = path.join(dir, 'bad.json');
+    fs.writeFileSync(
+      f,
+      JSON.stringify({ name: 'x', prompts: [{ id: 'v1', prompt: 'p' }], projectDir: '.', iteration: 5 })
+    );
+    const { stdout, exitCode } = await run(['--eval-file', f, '--json']);
+    expect(exitCode).toBe(78);
+    expect(JSON.parse(stdout).error.code).toBe('CONFIG_INVALID');
+  });
+});
+
 describe('resolveOutputMode', () => {
   const agentDetection = {
     isAgentic: true,

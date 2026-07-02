@@ -1,0 +1,6 @@
+{
+  "name": "min",
+  "prompts": [{ "id": "v1", "prompt": "Say hi in README.md" }],
+  "projectDir": ".",
+  "scorers": [{ "type": "command", "name": "readme-exists", "command": "test", "args": ["-f", "README.md"] }]
+}
