@@ -164,6 +164,16 @@ pnpm dlx tsx examples/phase2-multi-iteration.ts
 node dist/cli.mjs --eval-file ./examples/eval.json --dry-run   # after pnpm run build
 ```
 
+### Security audit escape hatch
+
+CI runs `pnpm audit --prod --audit-level high` as a blocking gate. If a high+ advisory lands in a
+transitive production dependency with no fixed release yet, scope an escape hatch to that single
+advisory (never a blanket `--audit-level` bump or disable) and remove it once a fix ships:
+
+- prefer a `pnpm.overrides` bump to a patched version of the offending transitive package, or
+- if no fix exists, ignore only that advisory via `pnpm.auditConfig.ignoreCves` in `package.json`
+  (e.g. `"pnpm": { "auditConfig": { "ignoreCves": ["CVE-2025-XXXXX"] } }`).
+
 ## Releasing
 
 From an up-to-date `main`:

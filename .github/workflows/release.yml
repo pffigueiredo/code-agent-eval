@@ -59,6 +59,7 @@ jobs:
           pnpm run publint
           pnpm run attw
           pnpm test -- run
+          pnpm audit --prod --audit-level high
 
       - name: Publish to npm (with provenance)
         if: steps.v.outputs.exists == 'false'
