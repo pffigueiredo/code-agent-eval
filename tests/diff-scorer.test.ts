@@ -62,4 +62,11 @@ describe('DiffContainsScorer', () => {
     const r = await s.evaluate(ctx(''));
     expect(r.score).toBe(1);
   });
+
+  it('scores 0 on invalid regex instead of throwing', async () => {
+    const s = new DiffContainsScorer({ type: 'diff-contains', pattern: '(', expect: 'present' });
+    const r = await s.evaluate(ctx('x'));
+    expect(r.score).toBe(0);
+    expect(r.reason).toMatch(/invalid regex/i);
+  });
 });
