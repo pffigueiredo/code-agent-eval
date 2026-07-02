@@ -150,6 +150,50 @@ describe("FileScorer", () => {
 		expect(r.reason).toContain("jsonPath");
 	});
 
+	it("passes nested jsonPath check", async () => {
+		fs.writeFileSync(
+			path.join(tmpDir, "data.json"),
+			JSON.stringify({ build: { status: "ok" } }),
+		);
+		const s = new FileScorer({
+			type: "file",
+			path: "data.json",
+			jsonPath: { path: "build.status", equals: "ok" },
+		});
+		const r = await s.evaluate(ctx(tmpDir));
+		expect(r.score).toBe(1);
+	});
+
+	it("resolves a dotted path descending past a primitive to undefined", async () => {
+		fs.writeFileSync(
+			path.join(tmpDir, "data.json"),
+			JSON.stringify({ version: "1.0.0" }),
+		);
+		// `version` is a string, so `version.major` cannot resolve — the value is
+		// absent (undefined), never the primitive or a string pseudo-property.
+		const s = new FileScorer({
+			type: "file",
+			path: "data.json",
+			jsonPath: { path: "version.major", equals: undefined },
+		});
+		const r = await s.evaluate(ctx(tmpDir));
+		expect(r.score).toBe(1);
+	});
+
+	it("fails a dotted path past a primitive when compared to a concrete value", async () => {
+		fs.writeFileSync(
+			path.join(tmpDir, "data.json"),
+			JSON.stringify({ version: "hello" }),
+		);
+		const s = new FileScorer({
+			type: "file",
+			path: "data.json",
+			jsonPath: { path: "version.length", equals: 5 },
+		});
+		const r = await s.evaluate(ctx(tmpDir));
+		expect(r.score).toBe(0);
+	});
+
 	it("fails contains when file is missing", async () => {
 		const s = new FileScorer({
 			type: "file",

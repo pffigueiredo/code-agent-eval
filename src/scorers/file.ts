@@ -62,7 +62,9 @@ export class FileScorer extends BaseScorer {
 
 function getDotted(obj: unknown, dotted: string): unknown {
 	return dotted.split(".").reduce<unknown>((acc, k) => {
-		if (acc == null || typeof acc !== "object") return acc;
+		// A segment can only be traversed on a non-null object; descending past a
+		// primitive means the path does not resolve, so the value is absent.
+		if (acc == null || typeof acc !== "object") return undefined;
 		return (acc as Record<string, unknown>)[k];
 	}, obj);
 }
