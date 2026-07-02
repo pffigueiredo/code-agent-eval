@@ -1,8 +1,9 @@
-import type { Scorer, ScorerContext } from '../types';
+import type { Scorer, ScorerContext, ScorerResult } from '../types';
 import { BuildSuccessScorer, TestSuccessScorer, LintSuccessScorer } from './code';
 import { SkillPickedUpScorer } from './agent';
 import { FileScorer } from './file';
 import { DiffContainsScorer } from './diff';
+import { clampScore } from './factories';
 import { resolveLibraryEntry } from '../eval-config-loader';
 import type { ScorerSpec, ScriptScorerSpec } from './schema';
 
@@ -71,7 +72,8 @@ export function compileScorer(spec: ScorerSpec): Scorer {
         async evaluate(ctx) {
           const def = await importScriptDefault(spec.path);
           if (typeof def !== 'function') throw new Error(`script scorer "${spec.name}": default export is not a function`);
-          return (def as (c: typeof ctx) => Promise<any>)(ctx);
+          const result = await (def as (c: typeof ctx) => Promise<ScorerResult>)(ctx);
+          return { ...result, score: clampScore(result.score) };
         },
       };
     default: {

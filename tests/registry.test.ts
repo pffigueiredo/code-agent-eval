@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { compileScorer } from '../src/scorers/registry';
 import type { ScorerContext } from '../src/types';
 
@@ -85,5 +88,14 @@ describe('compileScorer', () => {
     const r = await s.evaluate(ctx({ execCommand: async () => ({ score: 0.75, reason: 'partial coverage' }) }));
     expect(r.score).toBe(0.75);
     expect(r.reason).toBe('partial coverage');
+  });
+
+  it('script clamps an out-of-range default-export score to 1', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'reg-script-'));
+    const scriptPath = path.join(dir, 'over.mjs');
+    fs.writeFileSync(scriptPath, "export default async () => ({ score: 5, reason: 'x' });\n");
+    const s = compileScorer({ type: 'script', name: 'over', path: scriptPath });
+    const r = await s.evaluate(ctx());
+    expect(r.score).toBe(1);
   });
 });

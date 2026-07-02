@@ -1,13 +1,18 @@
 import { execa } from 'execa';
 import type { ScorerResult, ExecCommandOptions } from '../types';
 
-function tryParseScore(stdout: string): ScorerResult | null {
+/** Clamp a scorer score into the documented [0, 1] range. */
+export function clampScore(score: number): number {
+  return Math.max(0, Math.min(1, score));
+}
+
+export function tryParseScore(stdout: string): ScorerResult | null {
   const trimmed = stdout.trim();
   if (!trimmed.startsWith('{')) return null;
   try {
     const o = JSON.parse(trimmed);
     if (typeof o.score === 'number') {
-      return { score: o.score, reason: typeof o.reason === 'string' ? o.reason : 'command score', metadata: o.metadata };
+      return { score: clampScore(o.score), reason: typeof o.reason === 'string' ? o.reason : 'command score', metadata: o.metadata };
     }
   } catch {
     /* not JSON — fall through */
