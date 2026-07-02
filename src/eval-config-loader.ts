@@ -32,7 +32,10 @@ export async function collectScriptScorers(filePath: string): Promise<ScriptScor
   const resolved = path.resolve(filePath);
   const raw = JSON.parse(await readFile(resolved, 'utf8'));
   const parsed = jsonConfigSchema.safeParse(raw);
-  if (!parsed.success) return [];
+  // Propagate rather than silently returning []: in the dry-run path loadEvalFile
+  // has already validated, so this is unreachable for valid configs — but if the
+  // call order ever changes, a real config error surfaces (as SCORER_INVALID) loudly.
+  if (!parsed.success) throw new Error(`Invalid eval config:\n${formatIssues(parsed.error)}`);
   const configDir = path.dirname(resolved);
   const specs = parsed.data.scorers ?? [];
   return collectScriptSpecsDeep(specs, configDir);
