@@ -67,6 +67,17 @@ jobs:
           npm install -g npm@latest # ensure OIDC Trusted Publishing support
           npm publish --provenance --access public --tag ${{ steps.v.outputs.disttag }}
 
+      - name: Point `latest` at this release while pre-stable
+        if: steps.v.outputs.exists == 'false' && steps.v.outputs.disttag != 'latest'
+        run: |
+          # Alpha-only package: keep `latest` on the newest version so a plain
+          # `npm install code-agent-eval` resolves to it. Once a stable version
+          # owns `latest`, stop advancing it from prereleases.
+          current=$(npm view code-agent-eval dist-tags.latest 2>/dev/null || true)
+          if [ -z "$current" ] || [[ "$current" == *-* ]]; then
+            npm dist-tag add "code-agent-eval@${{ steps.v.outputs.version }}" latest
+          fi
+
       - name: Tag the release
         if: steps.v.outputs.exists == 'false'
         run: |
