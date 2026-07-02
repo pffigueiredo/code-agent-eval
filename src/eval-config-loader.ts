@@ -37,18 +37,19 @@ export async function collectScriptScorers(filePath: string): Promise<ScriptScor
   // call order ever changes, a real config error surfaces (as SCORER_INVALID) loudly.
   if (!parsed.success) throw new Error(`Invalid eval config:\n${formatIssues(parsed.error)}`);
   const configDir = path.dirname(resolved);
-  const specs = parsed.data.scorers ?? [];
-  return collectScriptSpecsDeep(specs, configDir);
+  const specs = (parsed.data.scorers ?? []).map((s) => resolveScriptPath(s, configDir));
+  return flattenScripts(specs);
 }
 
-function collectScriptSpecsDeep(specs: ScorerSpec[], configDir: string): ScriptScorerSpec[] {
+/** Flat-collect all `script` specs from a spec tree (recursing into all/any). Path resolution
+ *  is left to `resolveScriptPath`, so callers pass an already-resolved tree. */
+function flattenScripts(specs: ScorerSpec[]): ScriptScorerSpec[] {
   const results: ScriptScorerSpec[] = [];
   for (const spec of specs) {
     if (spec.type === 'script') {
-      const absPath = path.isAbsolute(spec.path) ? spec.path : path.resolve(configDir, spec.path);
-      results.push({ ...spec, path: absPath });
+      results.push(spec);
     } else if (spec.type === 'all' || spec.type === 'any') {
-      results.push(...collectScriptSpecsDeep(spec.of, configDir));
+      results.push(...flattenScripts(spec.of));
     }
   }
   return results;
