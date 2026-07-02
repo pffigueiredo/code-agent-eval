@@ -4,10 +4,13 @@ import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { z } from 'zod';
 import { detectAgenticEnvironment } from 'am-i-vibing';
 import { runClaudeCodeEval } from './runner';
 import type { EvalConfig } from './runner';
-import { loadEvalFile } from './eval-config-loader';
+import { loadEvalFile, collectScriptScorers } from './eval-config-loader';
+import { validateScriptScorer } from './scorers/registry';
+import { jsonConfigSchema } from './scorers/schema';
 import { resolveOutputMode } from './agent-detect';
 import type { AgentDetectionResult } from './agent-detect';
 
@@ -38,12 +41,13 @@ const help = `code-agent-eval v${version} - Evaluate coding agents with structur
 Usage: code-agent-eval --eval-file <path> [options]
 
 Options:
-  --eval-file <path>     Path to eval config file (.ts/.js)
+  --eval-file <path>     Path to eval config file (.json / .jsonl / .ts / .js)
   --iterations <n>       Override iteration count
   --verbose              Enable verbose logging
   --results-dir <path>   Override results directory
   --json                 Output results as JSON to stdout
   --dry-run              Validate config and show execution plan
+  --print-schema         Print JSON Schema for eval config and exit
   --show-skill           Print agent skill guide (eval config format, scorers, examples)
   --no-agent-detect      Disable automatic AI agent detection
   --help                 Show help
@@ -56,11 +60,16 @@ Environment variables:
   CODE_AGENT_EVAL_AGENT_DETECT   Set to "0" to disable agent detection
 
 Examples:
-  $ code-agent-eval --eval-file ./evals/health-check.ts
+  $ code-agent-eval --eval-file ./evals/health-check.json
   $ code-agent-eval --eval-file ./evals/refactor.ts --iterations 5
-  $ code-agent-eval --eval-file ./evals/refactor.ts --dry-run
+  $ code-agent-eval --eval-file ./evals/refactor.json --dry-run
   $ code-agent-eval --eval-file ./evals/refactor.ts --json > results.json
   $ code-agent-eval --eval-file ./evals/refactor.ts --results-dir ./out
+
+Authoring evals: JSON is the primary format — write eval.json with
+"$schema": "https://unpkg.com/code-agent-eval/schema.json", or run
+--print-schema to get the schema, then validate with --dry-run.
+The .ts/.js path remains for custom (function) scorers.
 `;
 
 // --- Main ---
@@ -77,6 +86,7 @@ async function main() {
         json: { type: 'boolean', default: false },
         'dry-run': { type: 'boolean', default: false },
         'agent-detect': { type: 'boolean', default: true },
+        'print-schema': { type: 'boolean', default: false },
         'show-skill': { type: 'boolean', default: false },
         help: { type: 'boolean', default: false },
         version: { type: 'boolean', default: false },
@@ -98,6 +108,11 @@ async function main() {
 
   if (values.help) {
     stdout(help);
+    process.exit(EXIT.SUCCESS);
+  }
+
+  if (values['print-schema']) {
+    process.stdout.write(JSON.stringify(z.toJSONSchema(jsonConfigSchema), null, 2) + '\n');
     process.exit(EXIT.SUCCESS);
   }
 
@@ -229,6 +244,27 @@ async function main() {
 
   // --dry-run: validate config and show plan without running
   if (values['dry-run']) {
+    // Validate script scorers for JSON configs (import + assert callable, never invoke)
+    if (/\.jsonl?$/i.test(values['eval-file'] as string)) {
+      try {
+        for (const s of await collectScriptScorers(values['eval-file'] as string)) {
+          await validateScriptScorer(s);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (isJson) {
+          stdoutJson({
+            status: 'error',
+            agentDetection,
+            error: { code: 'SCORER_INVALID', message, fix: 'Fix the script scorer module (export default a function).', transient: false },
+          });
+        } else {
+          console.error(`Error: ${message}`);
+        }
+        process.exit(EXIT.CONFIG);
+      }
+    }
+
     const plan = {
       name: finalConfig.name,
       prompts: finalConfig.prompts.map((p) => p.id),

@@ -21,6 +21,8 @@ export type {
 export { BaseScorer } from './scorers/base';
 export { BuildSuccessScorer, TestSuccessScorer, LintSuccessScorer } from './scorers/code';
 export { SkillPickedUpScorer } from './scorers/agent';
+export { FileScorer } from './scorers/file';
+export { DiffContainsScorer } from './scorers/diff';
 
 // Environment variable utilities
 export { generateEnvironmentVariables, validateEnvironmentVariables } from './env-generator';

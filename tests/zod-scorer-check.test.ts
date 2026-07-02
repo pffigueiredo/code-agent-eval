@@ -1,5 +1,6 @@
-import { expect, test, describe } from 'vitest';
+import { expect, test, describe, it } from 'vitest';
 import { evalConfigSchema } from '../src/eval-config-loader';
+import { jsonConfigSchema } from '../src/scorers/schema';
 import { BuildSuccessScorer, SkillPickedUpScorer } from '../src';
 
 describe('Zod schema with class-based scorers', () => {
@@ -68,5 +69,51 @@ describe('Zod schema with class-based scorers', () => {
       scorers: [{ name: 'bad' }],
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('jsonConfigSchema (JSON path)', () => {
+  const base = { name: 'x', prompts: [{ id: 'v1', prompt: 'p' }], projectDir: '.' };
+
+  it('accepts build + command specs', () => {
+    const r = jsonConfigSchema.safeParse({
+      ...base,
+      scorers: [{ type: 'build' }, { type: 'command', name: 'tc', command: 'npm', args: ['run', 'typecheck'] }],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('rejects unknown top-level key', () => {
+    expect(jsonConfigSchema.safeParse({ ...base, iteration: 5 }).success).toBe(false);
+  });
+
+  it('rejects unknown scorer key', () => {
+    expect(jsonConfigSchema.safeParse({ ...base, scorers: [{ type: 'build', nope: 1 }] }).success).toBe(false);
+  });
+
+  it('rejects command missing name', () => {
+    expect(jsonConfigSchema.safeParse({ ...base, scorers: [{ type: 'command', command: 'npm' }] }).success).toBe(false);
+  });
+
+  it('rejects unknown scorer type', () => {
+    expect(jsonConfigSchema.safeParse({ ...base, scorers: [{ type: 'nope' }] }).success).toBe(false);
+  });
+
+  it('permits and ignores $schema', () => {
+    const r = jsonConfigSchema.safeParse({ $schema: 'https://x/schema.json', ...base });
+    expect(r.success).toBe(true);
+  });
+
+  it('rejects empty all `of`', () => {
+    expect(jsonConfigSchema.safeParse({ ...base, scorers: [{ type: 'all', of: [] }] }).success).toBe(false);
+  });
+
+  it('rejects empty any `of`', () => {
+    expect(jsonConfigSchema.safeParse({ ...base, scorers: [{ type: 'any', of: [] }] }).success).toBe(false);
+  });
+
+  it('accepts non-empty all/any `of`', () => {
+    const r = jsonConfigSchema.safeParse({ ...base, scorers: [{ type: 'all', of: [{ type: 'build' }] }] });
+    expect(r.success).toBe(true);
   });
 });
