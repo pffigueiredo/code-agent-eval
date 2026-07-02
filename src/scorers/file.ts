@@ -29,10 +29,22 @@ export class FileScorer extends BaseScorer {
     if (spec.exists != null && (content !== null) !== spec.exists) fails.push(`exists=${spec.exists}`);
     if (content !== null) {
       if (spec.contains != null && !content.includes(spec.contains)) fails.push(`contains "${spec.contains}"`);
-      if (spec.matches != null && !new RegExp(spec.matches).test(content)) fails.push(`matches /${spec.matches}/`);
+      if (spec.matches != null) {
+        let re: RegExp | null = null;
+        try {
+          re = new RegExp(spec.matches);
+        } catch {
+          fails.push(`invalid regex /${spec.matches}/`);
+        }
+        if (re != null && !re.test(content)) fails.push(`matches /${spec.matches}/`);
+      }
       if (spec.jsonPath != null) {
-        const val = getDotted(JSON.parse(content), spec.jsonPath.path);
-        if (val !== spec.jsonPath.equals) fails.push(`jsonPath ${spec.jsonPath.path}`);
+        try {
+          const val = getDotted(JSON.parse(content), spec.jsonPath.path);
+          if (val !== spec.jsonPath.equals) fails.push(`jsonPath ${spec.jsonPath.path}`);
+        } catch {
+          fails.push(`invalid json for jsonPath ${spec.jsonPath.path}`);
+        }
       }
     } else if (spec.contains != null || spec.matches != null || spec.jsonPath != null) {
       fails.push('file not found');

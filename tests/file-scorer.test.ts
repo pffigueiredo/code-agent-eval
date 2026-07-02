@@ -113,4 +113,20 @@ describe('FileScorer', () => {
     expect(r.score).toBe(0);
     expect(r.reason).toContain('file not found');
   });
+
+  it('scores 0 on invalid regex instead of throwing', async () => {
+    fs.writeFileSync(path.join(tmpDir, 'f.txt'), 'content');
+    const s = new FileScorer({ type: 'file', path: 'f.txt', matches: '(' });
+    const r = await s.evaluate(ctx(tmpDir));
+    expect(r.score).toBe(0);
+    expect(r.reason).toMatch(/invalid regex/i);
+  });
+
+  it('scores 0 on non-JSON file for jsonPath instead of throwing', async () => {
+    fs.writeFileSync(path.join(tmpDir, 'f.json'), 'not json');
+    const s = new FileScorer({ type: 'file', path: 'f.json', jsonPath: { path: 'a', equals: 1 } });
+    const r = await s.evaluate(ctx(tmpDir));
+    expect(r.score).toBe(0);
+    expect(r.reason).toMatch(/invalid json|parse/i);
+  });
 });
