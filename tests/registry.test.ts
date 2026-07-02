@@ -25,4 +25,65 @@ describe('compileScorer', () => {
     await s.evaluate(ctx({ execCommand: async (o) => ((received = o), { score: 1, reason: 'ok' }) }));
     expect(received).toMatchObject({ command: 'npm', args: ['run', 'typecheck'] });
   });
+
+  it('skill-picked-up compiles to named Scorer', () => {
+    const s = compileScorer({ type: 'skill-picked-up', skill: 'commit' });
+    expect(s.name).toBe('skill-picked-up:commit');
+  });
+
+  it('file compiles with auto-derived name', () => {
+    const s = compileScorer({ type: 'file', path: 'README.md', exists: true });
+    expect(s.name).toBe('file:README.md');
+  });
+
+  it('diff-contains compiles with auto-derived name', () => {
+    const s = compileScorer({ type: 'diff-contains', pattern: 'foo' });
+    expect(s.name).toBe('diff:foo');
+  });
+
+  it('all combinator: score = min of children', async () => {
+    const s = compileScorer({
+      type: 'all',
+      of: [
+        { type: 'command', name: 'pass', command: 'true', args: [] },
+        { type: 'command', name: 'fail', command: 'false', args: [] },
+      ],
+    });
+    expect(s.name).toBe('all:[pass,fail]');
+    const r = await s.evaluate(
+      ctx({
+        execCommand: async (o) => (o.command === 'true' ? { score: 1, reason: 'ok' } : { score: 0, reason: 'fail' }),
+      })
+    );
+    expect(r.score).toBe(0);
+  });
+
+  it('any combinator: score = max of children', async () => {
+    const s = compileScorer({
+      type: 'any',
+      of: [
+        { type: 'command', name: 'pass', command: 'true', args: [] },
+        { type: 'command', name: 'fail', command: 'false', args: [] },
+      ],
+    });
+    expect(s.name).toBe('any:[pass,fail]');
+    const r = await s.evaluate(
+      ctx({
+        execCommand: async (o) => (o.command === 'true' ? { score: 1, reason: 'ok' } : { score: 0, reason: 'fail' }),
+      })
+    );
+    expect(r.score).toBe(1);
+  });
+
+  it('all combinator with explicit name', () => {
+    const s = compileScorer({ type: 'all', name: 'my-all', of: [{ type: 'build' }] });
+    expect(s.name).toBe('my-all');
+  });
+
+  it('command surfaces fractional score from execCommand result', async () => {
+    const s = compileScorer({ type: 'command', name: 'partial', command: 'scorer', args: [] });
+    const r = await s.evaluate(ctx({ execCommand: async () => ({ score: 0.75, reason: 'partial coverage' }) }));
+    expect(r.score).toBe(0.75);
+    expect(r.reason).toBe('partial coverage');
+  });
 });

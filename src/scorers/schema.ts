@@ -22,8 +22,19 @@ export const baseConfigShape = {
   claudeCodeOptions: z.record(z.string(), z.unknown()).optional(),
 } as const;
 
-/** Phase-1 scorer specs (extended in later phases). */
-export const scorerSpecSchema = z.discriminatedUnion('type', [
+/** Recursive scorer spec union (Phase 1 + Phase 2 types). */
+export type ScorerSpec =
+  | { type: 'build'; name?: string }
+  | { type: 'test'; name?: string }
+  | { type: 'lint'; name?: string }
+  | { type: 'command'; name: string; command: string; args?: string[]; timeout?: number; successMessage?: string; failureMessage?: string }
+  | { type: 'skill-picked-up'; skill: string; name?: string }
+  | { type: 'file'; name?: string; path: string; exists?: boolean; contains?: string; matches?: string; jsonPath?: { path: string; equals: unknown } }
+  | { type: 'diff-contains'; name?: string; pattern: string; expect?: 'present' | 'absent'; flags?: string }
+  | { type: 'all'; name?: string; of: ScorerSpec[] }
+  | { type: 'any'; name?: string; of: ScorerSpec[] };
+
+export const scorerSpecSchema: z.ZodType<ScorerSpec> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('build'), name: z.string().optional() }).strict(),
   z.object({ type: z.literal('test'), name: z.string().optional() }).strict(),
   z.object({ type: z.literal('lint'), name: z.string().optional() }).strict(),
@@ -38,8 +49,48 @@ export const scorerSpecSchema = z.discriminatedUnion('type', [
       failureMessage: z.string().optional(),
     })
     .strict(),
+  z.object({ type: z.literal('skill-picked-up'), skill: z.string(), name: z.string().optional() }).strict(),
+  z
+    .object({
+      type: z.literal('file'),
+      name: z.string().optional(),
+      path: z.string(),
+      exists: z.boolean().optional(),
+      contains: z.string().optional(),
+      matches: z.string().optional(),
+      jsonPath: z.object({ path: z.string(), equals: z.unknown() }).strict().optional(),
+    })
+    .strict()
+    .refine((s) => s.exists != null || s.contains != null || s.matches != null || s.jsonPath != null, {
+      message: 'file scorer requires at least one of exists/contains/matches/jsonPath',
+    }),
+  z
+    .object({
+      type: z.literal('diff-contains'),
+      name: z.string().optional(),
+      pattern: z.string(),
+      expect: z.enum(['present', 'absent']).default('present'),
+      flags: z.string().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal('all'),
+      name: z.string().optional(),
+      of: z.array(z.lazy(() => scorerSpecSchema)),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal('any'),
+      name: z.string().optional(),
+      of: z.array(z.lazy(() => scorerSpecSchema)),
+    })
+    .strict(),
 ]);
-export type ScorerSpec = z.infer<typeof scorerSpecSchema>;
+
+export type FileScorerSpec = Extract<ScorerSpec, { type: 'file' }>;
+export type DiffScorerSpec = Extract<ScorerSpec, { type: 'diff-contains' }>;
 
 /** TS path: scorers are functions (existing z.custom form). */
 export const evalConfigSchema = z.object({

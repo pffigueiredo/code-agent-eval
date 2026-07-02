@@ -1,6 +1,20 @@
 import { execa } from 'execa';
 import type { ScorerResult, ExecCommandOptions } from '../types';
 
+function tryParseScore(stdout: string): ScorerResult | null {
+  const trimmed = stdout.trim();
+  if (!trimmed.startsWith('{')) return null;
+  try {
+    const o = JSON.parse(trimmed);
+    if (typeof o.score === 'number') {
+      return { score: o.score, reason: typeof o.reason === 'string' ? o.reason : 'command score', metadata: o.metadata };
+    }
+  } catch {
+    /* not JSON — fall through */
+  }
+  return null;
+}
+
 /**
  * Builds the execCommand utility function that gets injected into ScorerContext.
  * This is used internally by the runner to provide command execution capabilities.
@@ -18,10 +32,12 @@ export function buildExecCommand(workingDir: string) {
     } = options;
 
     try {
-      await execa(command, args, {
+      const { stdout } = await execa(command, args, {
         cwd: workingDir,
         timeout,
       });
+      const parsed = tryParseScore(stdout);
+      if (parsed) return parsed;
       return {
         score: 1.0,
         reason: successMessage || `${command} ${args.join(' ')} passed`,
