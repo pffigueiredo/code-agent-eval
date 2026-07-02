@@ -438,6 +438,100 @@ describe('CLI: JSON config', () => {
   });
 });
 
+describe('CLI: script scorer dry-run validation', () => {
+  it('valid script scorer exits 0 with status ok', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-script-'));
+    const scorerPath = path.join(dir, 'scorer.mjs');
+    fs.writeFileSync(scorerPath, 'export default async (ctx) => ({ score: 1, reason: "ok" });\n');
+    const f = path.join(dir, 'eval.json');
+    fs.writeFileSync(
+      f,
+      JSON.stringify({
+        name: 'script-test',
+        prompts: [{ id: 'v1', prompt: 'p' }],
+        projectDir: '.',
+        scorers: [{ type: 'script', name: 'my-script', path: './scorer.mjs' }],
+      })
+    );
+    const { stdout, exitCode } = await run(['--eval-file', f, '--dry-run', '--json']);
+    expect(exitCode).toBe(0);
+    const out = JSON.parse(stdout);
+    expect(out.status).toBe('ok');
+    expect(out.data.scorers).toEqual(['my-script']);
+  });
+
+  it('broken script (syntax error) yields SCORER_INVALID (exit 78)', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-script-'));
+    const scorerPath = path.join(dir, 'broken.mjs');
+    fs.writeFileSync(scorerPath, 'this is not valid javascript !!!\n');
+    const f = path.join(dir, 'eval.json');
+    fs.writeFileSync(
+      f,
+      JSON.stringify({
+        name: 'broken-test',
+        prompts: [{ id: 'v1', prompt: 'p' }],
+        projectDir: '.',
+        scorers: [{ type: 'script', name: 'broken', path: './broken.mjs' }],
+      })
+    );
+    const { stdout, exitCode } = await run(['--eval-file', f, '--dry-run', '--json']);
+    expect(exitCode).toBe(78);
+    const out = JSON.parse(stdout);
+    expect(out.status).toBe('error');
+    expect(out.error.code).toBe('SCORER_INVALID');
+  });
+
+  it('non-function default export yields SCORER_INVALID (exit 78)', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-script-'));
+    const scorerPath = path.join(dir, 'num.mjs');
+    fs.writeFileSync(scorerPath, 'export default 42;\n');
+    const f = path.join(dir, 'eval.json');
+    fs.writeFileSync(
+      f,
+      JSON.stringify({
+        name: 'num-test',
+        prompts: [{ id: 'v1', prompt: 'p' }],
+        projectDir: '.',
+        scorers: [{ type: 'script', name: 'num-scorer', path: './num.mjs' }],
+      })
+    );
+    const { stdout, exitCode } = await run(['--eval-file', f, '--dry-run', '--json']);
+    expect(exitCode).toBe(78);
+    const out = JSON.parse(stdout);
+    expect(out.status).toBe('error');
+    expect(out.error.code).toBe('SCORER_INVALID');
+  });
+
+  it('dry-run does not invoke evaluate (sentinel file not written)', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-script-'));
+    const sentinelPath = path.join(dir, 'sentinel');
+    const scorerPath = path.join(dir, 'sentinel-scorer.mjs');
+    // The module top-level does NOT write the sentinel; only evaluate() does.
+    fs.writeFileSync(
+      scorerPath,
+      `import fs from 'node:fs';
+export default async function evaluate(ctx) {
+  fs.writeFileSync(${JSON.stringify(sentinelPath)}, 'touched');
+  return { score: 1, reason: 'ok' };
+}
+`
+    );
+    const f = path.join(dir, 'eval.json');
+    fs.writeFileSync(
+      f,
+      JSON.stringify({
+        name: 'sentinel-test',
+        prompts: [{ id: 'v1', prompt: 'p' }],
+        projectDir: '.',
+        scorers: [{ type: 'script', name: 'sentinel', path: './sentinel-scorer.mjs' }],
+      })
+    );
+    const { exitCode } = await run(['--eval-file', f, '--dry-run', '--json']);
+    expect(exitCode).toBe(0);
+    expect(fs.existsSync(sentinelPath)).toBe(false);
+  });
+});
+
 describe('resolveOutputMode', () => {
   const agentDetection = {
     isAgentic: true,

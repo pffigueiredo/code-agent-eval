@@ -1,0 +1,13 @@
+{
+  "name": "script-scorer-demo",
+  "prompts": [{ "id": "v1", "prompt": "Make sure README.md exists and has content." }],
+  "projectDir": ".",
+  "scorers": [
+    { "type": "build" },
+    {
+      "type": "script",
+      "name": "readme-check",
+      "path": "./scorers/check-readme.mjs"
+    }
+  ]
+}

@@ -7,7 +7,8 @@ import path from 'node:path';
 import { detectAgenticEnvironment } from 'am-i-vibing';
 import { runClaudeCodeEval } from './runner';
 import type { EvalConfig } from './runner';
-import { loadEvalFile } from './eval-config-loader';
+import { loadEvalFile, collectScriptScorers } from './eval-config-loader';
+import { validateScriptScorer } from './scorers/registry';
 import { resolveOutputMode } from './agent-detect';
 import type { AgentDetectionResult } from './agent-detect';
 
@@ -229,6 +230,27 @@ async function main() {
 
   // --dry-run: validate config and show plan without running
   if (values['dry-run']) {
+    // Validate script scorers for JSON configs (import + assert callable, never invoke)
+    if (/\.jsonl?$/i.test(values['eval-file'] as string)) {
+      try {
+        for (const s of await collectScriptScorers(values['eval-file'] as string)) {
+          await validateScriptScorer(s);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (isJson) {
+          stdoutJson({
+            status: 'error',
+            agentDetection,
+            error: { code: 'SCORER_INVALID', message, fix: 'Fix the script scorer module (export default a function).', transient: false },
+          });
+        } else {
+          console.error(`Error: ${message}`);
+        }
+        process.exit(EXIT.CONFIG);
+      }
+    }
+
     const plan = {
       name: finalConfig.name,
       prompts: finalConfig.prompts.map((p) => p.id),

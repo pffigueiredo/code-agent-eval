@@ -3,7 +3,28 @@ import { BuildSuccessScorer, TestSuccessScorer, LintSuccessScorer } from './code
 import { SkillPickedUpScorer } from './agent';
 import { FileScorer } from './file';
 import { DiffContainsScorer } from './diff';
-import type { ScorerSpec } from './schema';
+import { resolveLibraryEntry } from '../eval-config-loader';
+import type { ScorerSpec, ScriptScorerSpec } from './schema';
+
+async function importScriptDefault(scriptPath: string): Promise<unknown> {
+  const { createJiti } = await import('jiti');
+  const jiti = createJiti(import.meta.url, { alias: { 'code-agent-eval': resolveLibraryEntry() } });
+  const mod = (await jiti.import(scriptPath)) as { default?: unknown };
+  return mod.default;
+}
+
+/** Throws with a SCORER_INVALID-shaped message if the script can't provide a callable default. */
+export async function validateScriptScorer(spec: ScriptScorerSpec): Promise<void> {
+  let def: unknown;
+  try {
+    def = await importScriptDefault(spec.path);
+  } catch (err) {
+    throw new Error(`script scorer "${spec.name}" (${spec.path}): import failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  if (typeof def !== 'function') {
+    throw new Error(`script scorer "${spec.name}" (${spec.path}): default export is not a function`);
+  }
+}
 
 export function compileScorer(spec: ScorerSpec): Scorer {
   switch (spec.type) {
@@ -44,6 +65,15 @@ export function compileScorer(spec: ScorerSpec): Scorer {
         },
       };
     }
+    case 'script':
+      return {
+        name: spec.name,
+        async evaluate(ctx) {
+          const def = await importScriptDefault(spec.path);
+          if (typeof def !== 'function') throw new Error(`script scorer "${spec.name}": default export is not a function`);
+          return (def as (c: typeof ctx) => Promise<any>)(ctx);
+        },
+      };
     default: {
       const _exhaustive: never = spec;
       throw new Error(`Unknown scorer type: ${JSON.stringify(_exhaustive)}`);

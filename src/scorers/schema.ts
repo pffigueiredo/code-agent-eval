@@ -22,7 +22,7 @@ export const baseConfigShape = {
   claudeCodeOptions: z.record(z.string(), z.unknown()).optional(),
 } as const;
 
-/** Recursive scorer spec union (Phase 1 + Phase 2 types). */
+/** Recursive scorer spec union (Phase 1 + Phase 2 + Phase 3 types). */
 export type ScorerSpec =
   | { type: 'build'; name?: string }
   | { type: 'test'; name?: string }
@@ -32,7 +32,8 @@ export type ScorerSpec =
   | { type: 'file'; name?: string; path: string; exists?: boolean; contains?: string; matches?: string; jsonPath?: { path: string; equals: unknown } }
   | { type: 'diff-contains'; name?: string; pattern: string; expect?: 'present' | 'absent'; flags?: string }
   | { type: 'all'; name?: string; of: ScorerSpec[] }
-  | { type: 'any'; name?: string; of: ScorerSpec[] };
+  | { type: 'any'; name?: string; of: ScorerSpec[] }
+  | { type: 'script'; name: string; path: string };
 
 export const scorerSpecSchema: z.ZodType<ScorerSpec> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('build'), name: z.string().optional() }).strict(),
@@ -87,10 +88,12 @@ export const scorerSpecSchema: z.ZodType<ScorerSpec> = z.discriminatedUnion('typ
       of: z.array(z.lazy(() => scorerSpecSchema)),
     })
     .strict(),
+  z.object({ type: z.literal('script'), name: z.string(), path: z.string() }).strict(),
 ]);
 
 export type FileScorerSpec = Extract<ScorerSpec, { type: 'file' }>;
 export type DiffScorerSpec = Extract<ScorerSpec, { type: 'diff-contains' }>;
+export type ScriptScorerSpec = Extract<ScorerSpec, { type: 'script' }>;
 
 /** TS path: scorers are functions (existing z.custom form). */
 export const evalConfigSchema = z.object({
