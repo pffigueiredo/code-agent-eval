@@ -30,8 +30,8 @@ pnpm dlx tsx examples/plugin-execution.ts|plugin example
 - `src/types.ts` — `EvalConfig`, `EvalResult`, `Scorer`, etc.
 - `src/index.ts` — public exports
 - `src/scorers/` — `BaseScorer` abstract class + built-in scorer classes
-- `src/scorers/schema.ts` — `jsonConfigSchema` (JSON path), `scorerSpecSchema` (discriminated union), `baseConfigShape`
-- `src/scorers/registry.ts` — `compileScorer(spec)` / `compileScorers(specs)` — spec → `Scorer` instance
+- `src/scorers/schema.ts` — `jsonConfigSchema` (JSON path); internal `scorerSpecSchema` (discriminated union) + `baseConfigShape`
+- `src/scorers/registry.ts` — `compileScorer(spec)` — spec → `Scorer` instance
 
 ## Must-know
 

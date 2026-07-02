@@ -53,7 +53,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "check": "pnpm run typecheck && pnpm run lint && pnpm run build && pnpm test -- run",
+    "knip": "knip",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run knip && pnpm run build && pnpm test -- run",
     "release:prepare": "bumpp --no-commit --no-tag --no-push && git checkout -b \"release/$(node -p \"require('./package.json').version\")\" && changelogen --output CHANGELOG.md"
   },
   "engines": {
@@ -76,6 +77,7 @@
     "@types/node": "24.9.1",
     "bumpp": "11.1.0",
     "changelogen": "0.6.2",
+    "knip": "6.20.0",
     "tsdown": "0.22.3",
     "typescript": "6.0.3",
     "vitest": "4.1.9"

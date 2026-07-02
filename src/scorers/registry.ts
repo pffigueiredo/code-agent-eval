@@ -106,7 +106,3 @@ export function compileScorer(spec: ScorerSpec): Scorer {
 		}
 	}
 }
-
-export function compileScorers(specs: ScorerSpec[]): Scorer[] {
-	return specs.map(compileScorer);
-}
