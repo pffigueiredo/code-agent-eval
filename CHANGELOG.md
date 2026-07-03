@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.1-alpha.9] - 2026-07-02
+
+[compare changes](https://github.com/pffigueiredo/code-agent-eval/compare/v0.0.1-alpha.8...v0.0.1-alpha.9)
+
+### 🚀 Enhancements
+
+- JSON-authored eval configs (scorer registry, --print-schema, --dry-run) ([#10](https://github.com/pffigueiredo/code-agent-eval/pull/10))
+- Comprehensive reliability guardrails (Biome, knip, publint, attw, audit, Renovate) ([#11](https://github.com/pffigueiredo/code-agent-eval/pull/11))
+
+### 🩹 Fixes
+
+- **deps:** Update non-major deps ([#14](https://github.com/pffigueiredo/code-agent-eval/pull/14))
+
+### ❤️ Contributors
+
+- Pedro Figueiredo <klisarkk@gmail.com>
+
 ## [0.0.1-alpha.8] - 2026-07-01
 
 [compare changes](https://github.com/pffigueiredo/code-agent-eval/compare/v0.0.1-alpha.7...v0.0.1-alpha.8)

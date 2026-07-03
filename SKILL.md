@@ -12,197 +12,200 @@ description: >
 
 # code-agent-eval
 
-Generate eval config files for `code-agent-eval` — a TypeScript library that runs prompts against coding
-agents in isolated temp directories, captures git diffs, and scores results.
+Evaluate coding agents by authoring a **JSON config** — no TypeScript or build step required. The config
+is validated against a published JSON Schema; `--dry-run` catches mistakes before any agent runs.
 
-## How to help the user
+## Quick start (JSON-first)
 
-1. **Understand what they want to evaluate** — which codebase, what task, how many iterations, what
-   constitutes success.
-2. **Generate the eval config** — export a default object (no imports needed for basic configs).
-3. **Write appropriate scorers** — command-based, custom logic, or hybrid.
-4. **Suggest how to run it** — CLI for one-off runs, programmatic API for integration.
-
-## Quick start
-
-Create an eval config file (`.ts` or `.js`) and run:
+Get the schema (for editor autocomplete + validation):
 
 ```bash
-npx code-agent-eval --eval-file ./eval.config.ts
+npx code-agent-eval --print-schema > schema.json
 ```
 
-With the CLI, you can `import { BuildSuccessScorer, runClaudeCodeEval, … } from ‘code-agent-eval’` inside the eval file: resolution is wired to the CLI’s copy of the package, so **`npx` does not require a project-local install** for that import.
+Or reference the published schema directly with `$schema`:
+
+```json
+{ "$schema": "https://unpkg.com/code-agent-eval/schema.json" }
+```
+
+Write an `eval.json`, validate it, then run:
+
+```bash
+npx code-agent-eval --eval-file eval.json --dry-run   # validate — no agent runs
+npx code-agent-eval --eval-file eval.json             # real run
+npx code-agent-eval --eval-file eval.json --json      # structured output for CI
+```
 
 ## Eval config format
 
-Export a default object — no imports needed:
-
-```typescript
-export default {
-  name: 'my-eval',
-  prompts: [
-    { id: 'v1', prompt: 'Add a /health endpoint that returns { status: "ok" }' },
+```json
+{
+  "$schema": "https://unpkg.com/code-agent-eval/schema.json",
+  "name": "add-health-endpoint",
+  "prompts": [
+    { "id": "v1", "prompt": "Add a /health endpoint that returns { status: \"ok\" }" }
   ],
-  projectDir: '.',
-  iterations: 3,
-  scorers: [
-    {
-      name: 'build',
-      evaluate: async ({ execCommand }) =>
-        execCommand({ command: 'npm', args: ['run', 'build'], timeout: 60000 }),
-    },
-    {
-      name: 'test',
-      evaluate: async ({ execCommand }) =>
-        execCommand({ command: 'npm', args: ['test'], timeout: 120000 }),
-    },
-  ],
-  resultsDir: './eval-results',
+  "projectDir": ".",
+  "iterations": 3,
+  "scorers": [
+    { "type": "build" },
+    { "type": "test" },
+    { "type": "file", "path": "src/routes/health.ts", "exists": true, "contains": "status" },
+    { "type": "diff-contains", "pattern": "health\\.ts", "expect": "present" },
+    { "type": "skill-picked-up", "skill": "read-file" }
+  ]
 }
 ```
 
-## `projectDir` and where files live
+**All top-level fields:**
 
-- **Eval config files** — It is normal to keep them **next to the real project** (for example `evals/my-eval.ts` in the app repo). That layout is fine.
-- **`projectDir` = real codebase under test** — Use `.` (relative to cwd when you run the CLI), or a path to that checkout. Do not suggest moving the user’s real repo into a temp directory.
-- **`projectDir` = synthetic / scratch repo** (a fake tree only to drive the prompt — toy `package.json`, bloated `CLAUDE.md`, etc.) — **Create that tree under the system temp directory**, not under `~/something-evals/` or other durable home paths, unless the user explicitly wants it to persist. In Node, use `os.tmpdir()` with a unique subdirectory or `fs.mkdtempSync(path.join(os.tmpdir(), 'code-agent-eval-fixture-'))` and set `projectDir` to the resulting **absolute** path. The library still copies `projectDir` into its own per-run temp sandboxes; the source path should not leave long-lived junk in the user’s home directory.
+field|type|default|notes
+`name`|string|required|identifies the eval in results
+`prompts`|`[{id, prompt}]`|required|array — one entry per prompt variant
+`projectDir`|string|required|source repo (copied to temp dir; never modified)
+`iterations`|number|1|runs per prompt
+`execution`|`{mode, concurrency?}`|sequential|`sequential` / `parallel` / `parallel-limit`
+`timeout`|number|600000|per-iteration ms
+`scorers`|scorer spec array|`[]`|see below
+`verbose`|boolean|false|show SDK logs
+`tempDirCleanup`|`always\|on-failure\|never`|`always`|temp dir retention
+`resultsDir`|string|—|auto-export `results.md`, `results.json`, `iteration-*.log`
+`installDependencies`|boolean|true|auto-detect npm/yarn/pnpm/bun from lock file
+`agentId`|string|`"claude-code"`|appears in results
+`claudeCodeOptions`|object|—|passed to Claude Agent SDK `query()`
+`environmentVariables`|`Record<string,string>`|—|injected into agent env (JSON path only; use `.ts` for dynamic fn)
 
-The tool cannot tell “fixture” from “real repo” automatically — **orchestrating agents** must follow the convention above.
+## Scorer types
 
-## Claude Code artifacts in the fixture
+### Built-in commands
 
-If the eval depends on anything Claude Code discovers **from the project** — `CLAUDE.md`, skills under `.claude/skills`, slash commands under `.claude/commands`, hooks, subagents, shared `.claude/settings.json`, etc. — **put those files inside `projectDir`**. The library copies the whole tree into its per-run temp sandbox and runs the agent with `cwd` there; the runner defaults to project filesystem settings (`settingSources: ['project']` in the Agent SDK), so the agent sees the same layout as a normal checkout.
+```json
+{ "type": "build" }
+{ "type": "test" }
+{ "type": "lint" }
+```
 
-- **Do not** assume user-global `~/.claude` exists — breaks CI and other machines unless you intentionally opt in via `claudeCodeOptions.settingSources`.
-- **This repo’s root `SKILL.md`** (bundled with the npm package, printable via `--show-skill`) documents **how to use** `code-agent-eval`; it is **not** injected into eval sandboxes.
-- **Avoid** relying on agent-time “copy this skill in” workflows unless that side effect is what you are evaluating; prefer vendoring the final tree in the fixture.
-- **`claudeCodeOptions`**: optional passthrough to `@anthropic-ai/claude-agent-sdk` (`plugins`, extra `systemPrompt`, overrides to `settingSources`, etc.).
+Runs `npm run build/test/lint` in the agent's temp working directory.
 
-## EvalConfig type
+### Custom command
 
-```typescript
+```json
 {
-  name: string;                         // Eval name
-  prompts: Array<{
-    id: string;                         // Unique prompt identifier
-    prompt: string;                     // Prompt text sent to agent
-  }>;
-  projectDir: string;                   // Source project path (copied to temp dir)
-  iterations?: number;                  // Runs per prompt (default: 1)
-  execution?: {
-    mode: 'sequential' | 'parallel' | 'parallel-limit';
-    concurrency?: number;               // Required for parallel-limit
-  };
-  timeout?: number;                     // Per-iteration timeout ms (default: 600000)
-  scorers?: Scorer[];                   // Scoring functions (default: [])
-  verbose?: boolean;                    // Show SDK logs (default: false)
-  tempDirCleanup?: 'always' | 'on-failure' | 'never';  // default: 'always'
-  resultsDir?: string;                  // Auto-export results dir (markdown + JSON + logs)
-  installDependencies?: boolean;        // default: true — auto-detects npm/yarn/pnpm/bun
-  agentId?: string;                     // default: 'claude-code' — identifies agent in results
-  claudeCodeOptions?: {                 // Passed to Claude Agent SDK query()
-    systemPrompt?: string;              // Appended to base system prompt
-    [key: string]: unknown;             // Any other SDK options
-  };
-  environmentVariables?:
-    | Record<string, string>
-    | ((ctx: { iteration: number; promptId: string; evalName: string }) =>
-        Record<string, string> | Promise<Record<string, string>>);
+  "type": "command",
+  "name": "typecheck",
+  "command": "npm",
+  "args": ["run", "typecheck"],
+  "timeout": 60000
+}
+```
+
+`name` required. `command` + `args` are passed to `execa`. If the process prints `{"score":0.7,"reason":"..."}` on stdout, that fractional score is used instead of exit-code 0/1.
+
+### File check
+
+```json
+{
+  "type": "file",
+  "path": "src/routes/health.ts",
+  "exists": true,
+  "contains": "status: \"ok\"",
+  "matches": "export (default|function)"
+}
+```
+
+Checks a file inside the agent's working dir. At least one of `exists`/`contains`/`matches`/`jsonPath` required. All sub-checks are ANDed. Auto-name: `file:<path>`.
+
+`jsonPath` checks a dotted path in a JSON file:
+
+```json
+{ "type": "file", "path": "package.json", "jsonPath": { "path": "scripts.build", "equals": "tsdown" } }
+```
+
+### Diff contains / absent
+
+```json
+{ "type": "diff-contains", "pattern": "\\+\\+\\+ b/src/routes/health\\.ts", "expect": "present" }
+{ "type": "diff-contains", "pattern": "console\\.log", "expect": "absent" }
+```
+
+Regex over the full `git diff`. `expect` defaults to `"present"`. Auto-name: `diff:<pattern>`.
+
+### Skill picked up
+
+```json
+{ "type": "skill-picked-up", "skill": "read-file" }
+```
+
+Passes if the agent invoked the named skill during its run. Auto-name: `skill-picked-up:<skill>`.
+
+### Combinators
+
+```json
+{
+  "type": "all",
+  "name": "quality-gate",
+  "of": [
+    { "type": "build" },
+    { "type": "file", "path": "README.md", "exists": true }
+  ]
+}
+```
+
+`all` = min score of children; `any` = max score of children. Both can be nested.
+
+### Script (custom code escape hatch)
+
+```json
+{ "type": "script", "name": "route-coverage", "path": "./scorers/route-test-coverage.mjs" }
+```
+
+Imports `path` (relative to the eval file) and calls its `default` export as `evaluate(ctx)`. `--dry-run` imports the module and asserts a callable default — never invokes `evaluate`.
+
+```javascript
+// scorers/route-test-coverage.mjs
+export default async function evaluate(ctx) {
+  const result = await ctx.execCommand({ command: 'npm', args: ['test'] });
+  return result;
 }
 ```
 
 ## Scorer interface
 
-```typescript
-interface Scorer {
-  name: string;
-  evaluate: (context: ScorerContext) => Promise<ScorerResult>;
-}
+The `ScorerContext` passed to every scorer:
 
+```typescript
 interface ScorerContext {
-  workingDir: string;                    // Temp directory with agent's changes
-  diff: string;                          // Git diff output
-  agentOutput: string;                   // Raw agent messages (JSON)
-  promptId: string;                      // Which prompt variant
-  environmentVariables?: Record<string, string>;
+  workingDir: string;        // temp dir with agent's changes
+  diff: string;              // full git diff
+  agentOutput: string;       // raw agent messages (JSON)
+  promptId: string;          // which prompt variant
   execCommand: (opts: ExecCommandOptions) => Promise<ScorerResult>;
 }
 
 interface ExecCommandOptions {
-  command: string;                       // e.g. 'npm', 'pnpm'
-  args: string[];                        // e.g. ['run', 'build']
-  timeout?: number;                      // ms (default: 120000)
+  command: string;           // e.g. 'npm'
+  args: string[];            // e.g. ['run', 'test']
+  timeout?: number;          // ms (default 120000)
   successMessage?: string;
   failureMessage?: string;
 }
 
 interface ScorerResult {
-  score: number;                         // 0.0 to 1.0
+  score: number;             // 0.0–1.0
   reason: string;
   metadata?: Record<string, unknown>;
 }
 ```
 
-## Scorer patterns
+## Four escape-hatch rungs
 
-**Command-based** — run a shell command, pass/fail:
-```typescript
-{
-  name: 'typecheck',
-  evaluate: async ({ execCommand }) =>
-    execCommand({ command: 'pnpm', args: ['typecheck'], timeout: 60000 }),
-}
-```
+When JSON scorers aren't enough, escalate:
 
-**Custom logic** — inspect the diff or agent output:
-```typescript
-{
-  name: 'diff-size',
-  evaluate: async ({ diff }) => {
-    const lines = diff.split('\n').length;
-    return lines < 50
-      ? { score: 1.0, reason: `Concise (${lines} lines)` }
-      : { score: 0.0, reason: `Too large (${lines} lines)` };
-  },
-}
-```
-
-**Hybrid** — combine command execution with custom checks:
-```typescript
-{
-  name: 'build-clean',
-  evaluate: async ({ execCommand, diff }) => {
-    const build = await execCommand({ command: 'npm', args: ['run', 'build'], timeout: 300000 });
-    if (build.score === 0) return build;
-    if (/^\+.*console\.log/m.test(diff)) {
-      return { score: 0.5, reason: 'Build OK but console.log added' };
-    }
-    return { score: 1.0, reason: 'Build passed, clean diff' };
-  },
-}
-```
-
-## Built-in scorers
-
-The library ships pre-built scorers accessible via the programmatic API:
-
-```typescript
-import { BuildSuccessScorer, TestSuccessScorer, LintSuccessScorer, SkillPickedUpScorer } from 'code-agent-eval';
-
-export default {
-  name: 'my-eval',
-  prompts: [{ id: 'v1', prompt: 'Refactor the auth module' }],
-  projectDir: '.',
-  scorers: [
-    new BuildSuccessScorer(),          // npm run build (5min timeout)
-    new TestSuccessScorer(),           // npm run test  (5min timeout)
-    new LintSuccessScorer(),           // npm run lint  (1min timeout)
-    new SkillPickedUpScorer('commit'), // check if 'commit' skill was invoked
-  ],
-}
-```
-
-Extend `BaseScorer` for custom scorers — see docs/claude/scorers.md.
+1. **JSON** (`type: build|test|lint|command|file|diff-contains|skill-picked-up|all|any`) — zero code
+2. **`script`** — a `.mjs` file with `export default async function evaluate(ctx)` — full JS, no build step
+3. **`.ts`/`.js` eval file** — `export default { ..., scorers: [new BuildSuccessScorer(), ...] }` — TypeScript, built-in classes
+4. **Programmatic API** — `import { runClaudeCodeEval } from 'code-agent-eval'` — full control
 
 ## CLI options
 
@@ -210,109 +213,52 @@ Extend `BaseScorer` for custom scorers — see docs/claude/scorers.md.
 code-agent-eval --eval-file <path> [options]
 
 Options:
-  --eval-file <path>     Required. Path to eval config (.ts/.js)
+  --eval-file <path>     Required. Path to eval config (.json/.ts/.js/.mjs)
+  --dry-run              Validate config and show execution plan without running
+  --print-schema         Print the JSON Schema for eval.json and exit
+  --show-skill           Print this guide and exit
+  --json                 Output results as JSON to stdout (logs go to stderr)
   --iterations <n>       Override config iterations
   --threshold <0..1>     Pass when overall pass rate >= this (default 1.0)
   --output <path>        Write an artifact; repeatable; format from extension
                          (.xml → JUnit, .json → JSON, .md → Markdown)
   --verbose              Force verbose logging
   --results-dir <path>   Override results directory
-  --json                 Output results as JSON to stdout (logs go to stderr)
-  --dry-run              Validate config and show execution plan without running
+  --no-agent-detect      Disable auto-JSON when running inside a coding agent
   --help                 Show help
   --version              Show version
 
 Environment variable overrides (flags take precedence):
-  CODE_AGENT_EVAL_ITERATIONS    Override iteration count
-  CODE_AGENT_EVAL_THRESHOLD     Override pass-rate threshold (0..1)
-  CODE_AGENT_EVAL_VERBOSE       Set to "1" or "true" for verbose
-  CODE_AGENT_EVAL_RESULTS_DIR   Override results directory
+  CODE_AGENT_EVAL_ITERATIONS      Override iteration count
+  CODE_AGENT_EVAL_THRESHOLD       Override pass-rate threshold (0..1)
+  CODE_AGENT_EVAL_VERBOSE         Set to "1" or "true" for verbose
+  CODE_AGENT_EVAL_RESULTS_DIR     Override results directory
+  CODE_AGENT_EVAL_AGENT_DETECT    Set to "0" to disable agent detection
 ```
 
 **Precedence:** CLI flags > environment variables > config file values.
 
 **CI:** exit codes are `0` pass / `1` fail (pass rate vs `--threshold`) / `2` usage / `69` missing `ANTHROPIC_API_KEY` / `78` config error. `--output results.junit.xml` writes JUnit for test dashboards; when `$GITHUB_STEP_SUMMARY` is set the CLI appends a Markdown summary automatically. See `examples/github-actions.yml`.
 
-## Programmatic API
+## `projectDir` and where files live
 
-For integration into test suites or CI pipelines:
+- **Eval config files** — keep them next to the real project (e.g. `evals/my-eval.json`).
+- **`projectDir` = real codebase** — use `.` (relative to cwd) or an absolute path. Never modify it; the library copies it to an isolated temp dir.
+- **`projectDir` = synthetic fixture** — create under `os.tmpdir()` to avoid leaving long-lived junk.
 
-```typescript
-import { runClaudeCodeEval } from 'code-agent-eval';
+The original `projectDir` is never modified. All agent work happens in `/tmp/eval-{uuid}` sandboxes.
 
-const result = await runClaudeCodeEval({
-  name: 'ci-eval',
-  prompts: [{ id: 'v1', prompt: 'Fix the failing test in auth.test.ts' }],
-  projectDir: './my-project',
-  iterations: 3,
-  scorers: [
-    {
-      name: 'test',
-      evaluate: async ({ execCommand }) =>
-        execCommand({ command: 'npm', args: ['test'], timeout: 120000 }),
-    },
-  ],
-});
+## Claude Code artifacts in the fixture
 
-console.log(result.success);           // boolean — all iterations passed
-console.log(result.aggregateScores);   // per-scorer stats (mean, min, max, stdDev, passRate)
-console.log(result.tokenUsage);        // total token consumption
-```
+Put `CLAUDE.md`, skills, slash commands, and hooks inside `projectDir`. The library copies the whole tree into each temp sandbox; the agent sees the same layout as a normal checkout (`settingSources: ['project']`).
 
-## Multi-prompt comparison
-
-Compare how different prompt phrasings perform on the same task:
-
-```typescript
-export default {
-  name: 'prompt-comparison',
-  prompts: [
-    { id: 'minimal', prompt: 'Add auth middleware' },
-    { id: 'detailed', prompt: 'Add JWT auth middleware with refresh tokens, rate limiting, and role-based access' },
-    { id: 'step-by-step', prompt: 'Step 1: Add JWT verification. Step 2: Add refresh tokens. Step 3: Add RBAC.' },
-  ],
-  projectDir: './my-api',
-  iterations: 5,
-  execution: { mode: 'parallel-limit', concurrency: 3 },
-  scorers: [
-    {
-      name: 'test',
-      evaluate: async ({ execCommand }) =>
-        execCommand({ command: 'npm', args: ['test'], timeout: 120000 }),
-    },
-  ],
-  resultsDir: './eval-results',
-}
-```
-
-## Environment variables
-
-Static or dynamic per iteration:
-
-```typescript
-export default {
-  name: 'with-env',
-  prompts: [{ id: 'v1', prompt: 'Connect to database and add migration' }],
-  projectDir: '.',
-  // Static:
-  environmentVariables: {
-    DATABASE_URL: 'postgres://localhost:5432/test',
-    NODE_ENV: 'test',
-  },
-  // Or dynamic (receives iteration context):
-  // environmentVariables: ({ iteration, promptId }) => ({
-  //   DATABASE_URL: `postgres://localhost:5432/test_${iteration}`,
-  // }),
-}
-```
+- Do not assume user-global `~/.claude` exists — breaks CI.
+- `claudeCodeOptions.settingSources` overrides the default if needed.
 
 ## Key behaviors
 
-- Original `projectDir` is never modified — all work happens in isolated `/tmp/eval-{uuid}` directories
-- Dependencies auto-installed (npm/yarn/pnpm/bun detected from lock files) unless `installDependencies: false`
-- Git repo initialized automatically if not already present
-- Agent runs with `permissionMode: 'bypassPermissions'` in a sandboxed system prompt; project-scoped Claude Code artifacts in `projectDir` copy into the temp `cwd` and load with default `settingSources: ['project']` unless you override via `claudeCodeOptions`
-- `--json` mode sends structured results to stdout, all logs to stderr — safe for piping
-- `--dry-run` validates config and prints the execution plan without running anything
-- Results written to `resultsDir/` if specified: `results.md`, `results.json`, and `iteration-*.log` files
-- Exit code: 0 if all iterations pass, 1 if any fail
+- Temp dirs cleaned up after each run (`tempDirCleanup: 'always'` default)
+- Dependencies auto-installed per run unless `installDependencies: false`
+- Git repo initialized automatically if `projectDir` is not already a repo
+- `--json` sends structured results to stdout; all logs go to stderr — safe for piping
+- Exit code: 0 if all iterations pass, 1 if any fail, 78 on config error, 2 on usage error

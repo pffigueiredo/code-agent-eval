@@ -4,77 +4,93 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 
-Evaluate coding agent prompts (Claude Code, Cursor, etc.) by running them multiple times and scoring outputs. Test reliability, capture changes, measure success rates.
+Evaluate coding agent prompts (Claude Code, Cursor, etc.) by running them multiple times and scoring outputs.
+Test reliability, capture diffs, measure success rates.
 
 > **Key Principle**: Your codebase stays untouched. All modifications happen in isolated temp directories.
 
-## Features
+---
 
-- 🔄 Multi-iteration runs with aggregate metrics (pass rate, mean/min/max, std dev)
-- ⚡ Sequential, parallel, or rate-limited execution
-- 🔒 Isolated temp directories per iteration
-- ✅ Built-in scorers (build/test/lint), `skillPickedUp` for Skill invocations, plus custom scorers
-- 📊 Git diff capture; with `resultsDir`, exports `results.md`, per-iteration logs, and `results.json`
-- 🔧 Environment variable injection (static/dynamic)
-- 🖥️ CLI (`code-agent-eval`) to run evals from a config file (`--eval-file`)
-- 🚦 CI-ready: pass-rate `--threshold` gate, semantic exit codes, `--output` JUnit/JSON/Markdown artifacts, GitHub job summary
+## For agents: write a JSON eval
 
-## Installation
+The fastest path — no TypeScript, no build step. Get the schema:
 
 ```bash
-npm install code-agent-eval
-# or
-pnpm add code-agent-eval
-# or
-yarn add code-agent-eval
-# or
-bun add code-agent-eval
+npx code-agent-eval --print-schema
 ```
 
-## Quick Start
+In your `eval.json`, set `"$schema": "https://unpkg.com/code-agent-eval/schema.json"` (not the URL printed inside the schema output) so editors bind autocomplete + validation:
 
-```typescript
-import { runClaudeCodeEval, BuildSuccessScorer, TestSuccessScorer } from 'code-agent-eval';
-
-const result = await runClaudeCodeEval({
-  name: 'add-feature',
-  prompts: [{ id: 'v1', prompt: 'Add a health check endpoint' }],
-  projectDir: './my-app',
-  iterations: 10,
-  execution: { mode: 'parallel' }, // or 'sequential' (default), 'parallel-limit'
-  scorers: [new BuildSuccessScorer(), new TestSuccessScorer()],
-});
-
-console.log(`Pass rate: ${result.aggregateScores._overall.passRate * 100}%`);
+```json
+{
+  "$schema": "https://unpkg.com/code-agent-eval/schema.json",
+  "name": "add-health-endpoint",
+  "prompts": [
+    { "id": "v1", "prompt": "Add a /health endpoint that returns { status: \"ok\" }" }
+  ],
+  "projectDir": ".",
+  "iterations": 3,
+  "scorers": [
+    { "type": "build" },
+    { "type": "test" },
+    { "type": "file", "path": "src/routes/health.ts", "exists": true },
+    { "type": "diff-contains", "pattern": "health\\.ts", "expect": "present" }
+  ]
+}
 ```
 
-## CLI
-
-Run an eval from a file that exports a default (or named `config`) `EvalConfig`:
+Validate then run:
 
 ```bash
-npx code-agent-eval --eval-file ./examples/cli-test.ts
+npx code-agent-eval --eval-file eval.json --dry-run   # catches errors before any agent runs
+npx code-agent-eval --eval-file eval.json --json      # structured output
 ```
 
-After `npm install -g code-agent-eval`, use `code-agent-eval` instead of `npx`. See `code-agent-eval --help` for every flag.
+**Scorer types:** `build` · `test` · `lint` · `command` · `file` · `diff-contains` · `skill-picked-up` · `all` · `any` · `script`
 
-Eval files loaded via `--eval-file` may use `import { BuildSuccessScorer, … } from 'code-agent-eval'`. The CLI resolves that specifier to the same package as the running binary, so **`npx` works without installing `code-agent-eval` in the project** (no local `node_modules` entry required for those imports).
+See `npx code-agent-eval --show-skill` for the full scorer reference.
 
-Useful options: `--json` (results on stdout), `--dry-run` (validate config and print plan), `--show-skill` (print eval/skill guide), `--iterations`, `--verbose`, `--results-dir`, `--threshold`, `--output`. Env vars `CODE_AGENT_EVAL_ITERATIONS`, `CODE_AGENT_EVAL_VERBOSE`, `CODE_AGENT_EVAL_RESULTS_DIR`, `CODE_AGENT_EVAL_THRESHOLD` override config when set. Precedence: **flags > env vars > config file**.
+---
 
-When the process runs inside an agentic environment, JSON-style stdout may be selected automatically; use `--no-agent-detect` or `CODE_AGENT_EVAL_AGENT_DETECT=0` to disable.
+## For CI: JSON + CLI
 
-### CI / GitHub Actions
+Pipe results to your pipeline with `--json` (stdout) and check exit codes:
 
-The CLI is a first-class CI executable: deterministic exit code, a configurable pass-rate gate, machine-readable artifacts, and a GitHub job summary — no wrapper Action required.
+```bash
+# exit 0 = all pass, exit 1 = some fail, exit 78 = config error
+npx code-agent-eval --eval-file eval.json --json > results.json
+echo "exit=$?"
+```
 
-- **Gate on pass rate** with `--threshold <0..1>` (or `passThreshold` in config, or `CODE_AGENT_EVAL_THRESHOLD`). Default `1.0` means every iteration must pass; `--threshold 0.8` passes when ≥80% of iterations pass.
-- **Emit artifacts** with `--output <path>`, repeatable, format inferred from the extension: `.xml` → JUnit XML (testsuite per prompt, testcase per iteration), `.json` → full `EvalResult`, `.md` → Markdown. Upload the JUnit file to render each iteration in CI test dashboards.
-- **Job summary**: when `$GITHUB_STEP_SUMMARY` is set (it always is on GitHub Actions), the CLI appends a Markdown pass/fail summary — no tokens, no API calls.
+Useful flags:
+
+flag|purpose
+`--dry-run`|validate config + print plan; never runs the agent
+`--json`|structured results on stdout; logs on stderr
+`--print-schema`|emit the JSON Schema (pipe to a file for offline use)
+`--iterations <n>`|override iteration count
+`--threshold <0..1>`|gate the exit code on overall pass rate (default `1.0` = all must pass)
+`--output <path>`|write an artifact; repeatable; format from extension (`.xml` JUnit / `.json` / `.md`)
+`--results-dir <path>`|write `results.md`, `results.json`, `iteration-*.log`
+`--no-agent-detect`|force human-readable output even inside a coding agent env
+
+Environment variable overrides: `CODE_AGENT_EVAL_ITERATIONS`, `CODE_AGENT_EVAL_THRESHOLD`, `CODE_AGENT_EVAL_VERBOSE`, `CODE_AGENT_EVAL_RESULTS_DIR`, `CODE_AGENT_EVAL_AGENT_DETECT=0`.
+
+**JSON output shape:**
+
+```json
+{ "status": "ok", "agentDetection": {...}, "data": { "name": "...", "aggregateScores": {...}, ... } }
+{ "status": "error", "agentDetection": {...}, "error": { "code": "CONFIG_INVALID", "message": "...", "fix": "...", "transient": false } }
+```
+
+Exit codes: `0` pass (rate ≥ threshold) · `1` fail (rate < threshold) · `2` usage error · `69` `ANTHROPIC_API_KEY` missing (fail-fast preflight) · `78` config error.
+
+### GitHub Actions
+
+Gate a PR on pass rate, upload a JUnit artifact, and get a job summary — no wrapper Action:
 
 ```yaml
-# .github/workflows/eval.yml — see examples/github-actions.yml for the full copy-paste version
-- run: npx code-agent-eval --eval-file ./evals/health-check.ts --threshold 0.8 --output results.junit.xml
+- run: npx code-agent-eval --eval-file eval.json --threshold 0.8 --output results.junit.xml
   env:
     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 - uses: actions/upload-artifact@v4
@@ -84,65 +100,119 @@ The CLI is a first-class CI executable: deterministic exit code, a configurable 
     path: results.junit.xml
 ```
 
-**Exit codes** (`sysexits.h` convention) let CI branch on the outcome:
+`--output` writes JUnit XML (testsuite per prompt, testcase per iteration) so CI test dashboards render each iteration; when `$GITHUB_STEP_SUMMARY` is set (always on Actions) the CLI appends a Markdown pass/fail summary. Full copy-paste workflow: [`examples/github-actions.yml`](examples/github-actions.yml).
 
-| Code | Meaning |
-| ---- | ------- |
-| `0`  | Pass — overall pass rate ≥ threshold |
-| `1`  | Fail — pass rate below threshold |
-| `2`  | Usage error (bad flag / arg / unknown `--output` extension) |
-| `69` | `ANTHROPIC_API_KEY` missing (fail-fast preflight, before any iteration) |
-| `78` | Config error (eval file failed to load) |
+---
 
-## Development
+## For programmatic use: TypeScript API
+
+Install:
 
 ```bash
-pnpm install              # Install dependencies
-pnpm run typecheck        # TypeScript check
-pnpm run build            # Build library
-pnpm run test             # Run tests
-
-# Examples
-pnpm dlx tsx examples/phase1-single-run.ts
-pnpm dlx tsx examples/phase2-multi-iteration.ts
-pnpm dlx tsx examples/parallel-execution.ts
-pnpm dlx tsx examples/multi-prompt-parallel.ts
-pnpm dlx tsx examples/results-export.ts
-pnpm dlx tsx examples/plugin-execution.ts
-node dist/cli.mjs --eval-file ./examples/cli-test.ts   # after pnpm run build
+npm install code-agent-eval
+# or: pnpm add / yarn add / bun add
 ```
 
-A copy-paste GitHub Actions workflow (threshold gate + JUnit artifact + job summary) lives in [`examples/github-actions.yml`](examples/github-actions.yml).
+```typescript
+import { runClaudeCodeEval, BuildSuccessScorer, TestSuccessScorer, SkillPickedUpScorer } from 'code-agent-eval';
 
-## Releasing
+const result = await runClaudeCodeEval({
+  name: 'add-feature',
+  prompts: [
+    { id: 'minimal', prompt: 'Add a health check endpoint' },
+    { id: 'detailed', prompt: 'Add a /health endpoint returning { status: "ok" } with a test' },
+  ],
+  projectDir: './my-app',
+  iterations: 5,
+  execution: { mode: 'parallel-limit', concurrency: 3 },
+  scorers: [
+    new BuildSuccessScorer(),
+    new TestSuccessScorer(),
+    new SkillPickedUpScorer('read-file'),
+    {
+      name: 'no-console-log',
+      evaluate: async ({ diff }) =>
+        /^\+.*console\.log/m.test(diff)
+          ? { score: 0, reason: 'console.log added' }
+          : { score: 1, reason: 'clean diff' },
+    },
+  ],
+  resultsDir: './eval-results',
+});
 
-Releases are cut from a PR and published by CI. From an up-to-date `main`:
+console.log(`Pass rate: ${result.aggregateScores._overall.passRate * 100}%`);
+console.log(`Tokens: ${result.tokenUsage.totalTokens}`);
+```
+
+Built-in scorer classes: `BuildSuccessScorer` · `TestSuccessScorer` · `LintSuccessScorer` · `SkillPickedUpScorer` · `FileScorer` · `DiffContainsScorer`. Extend `BaseScorer` for custom scorers.
+
+**Eval file shortcut** — run a `.ts`/`.js` config with the CLI (no separate compile step):
 
 ```bash
-pnpm run release:prepare   # bumpp picks the version, creates release/<version>, changelogen writes the CHANGELOG section
-# review the CHANGELOG diff, then commit + open a PR
+npx code-agent-eval --eval-file ./eval.config.ts
 ```
 
-`release:prepare` bumps the version, creates the `release/<version>` branch for you, and
-writes the CHANGELOG section — no need to create the branch by hand.
+The CLI resolves `import { ... } from 'code-agent-eval'` to its own copy — no local install needed.
 
-On merge to `main`, `.github/workflows/release.yml` sees the new version has no matching
-tag, then tags `vX.Y.Z`, publishes to npm (with provenance), and creates a GitHub Release
-from the CHANGELOG section. Prereleases (e.g. `-alpha.0`) publish under a matching dist-tag,
-not `latest`.
-
-> One-time setup: enable npm [Trusted Publishing (OIDC)](https://docs.npmjs.com/trusted-publishers)
-> for this package so CI can publish without an `NPM_TOKEN`.
-
-## Documentation
-
-See [CLAUDE.md](./CLAUDE.md) for agent context; expanded architecture, config, and scorer examples are in [docs/claude/](docs/claude/).
+---
 
 ## Requirements
 
 - Node.js 18+
 - `ANTHROPIC_API_KEY` for the Claude Agent SDK
 - Claude Code available on the host (CLI auth / environment expected for agent runs)
+
+## Installation
+
+```bash
+npm install code-agent-eval    # local
+npm install -g code-agent-eval # global — then use `code-agent-eval` instead of `npx code-agent-eval`
+```
+
+## Development
+
+```bash
+pnpm install              # install deps
+pnpm run typecheck        # TypeScript check
+pnpm run build            # build + generate schema.json
+pnpm run test             # unit + integration tests
+
+# Examples
+pnpm dlx tsx examples/phase1-single-run.ts
+pnpm dlx tsx examples/phase2-multi-iteration.ts
+node dist/cli.mjs --eval-file ./examples/eval.json --dry-run   # after pnpm run build
+```
+
+### Security audit escape hatch
+
+CI runs `pnpm audit --prod --audit-level high` as a blocking gate. If a high+ advisory lands in a
+transitive production dependency with no fixed release yet, scope an escape hatch to that single
+advisory (never a blanket `--audit-level` bump or disable) and remove it once a fix ships:
+
+- prefer a `pnpm.overrides` bump to a patched version of the offending transitive package, or
+- if no fix exists, ignore only that advisory via `pnpm.auditConfig.ignoreCves` in `package.json`
+  (e.g. `"pnpm": { "auditConfig": { "ignoreCves": ["CVE-2025-XXXXX"] } }`).
+
+## Releasing
+
+From an up-to-date `main`:
+
+```bash
+pnpm run release:prepare   # bump version, create release branch, write CHANGELOG
+# review CHANGELOG diff, then commit + open a PR
+```
+
+On merge to `main`, CI tags `vX.Y.Z`, publishes to npm, and creates a GitHub Release.
+Prereleases publish under their label dist-tag (e.g. `alpha`); while no stable
+version owns `latest`, the newest prerelease publishes under `latest` too so a
+plain `npm install code-agent-eval` resolves to it. Once a stable version owns
+`latest`, prereleases go back to their label only.
+
+## Documentation
+
+- `CLAUDE.md` — agent context and quick reference
+- `docs/claude/` — architecture, config, scorer patterns
+- `npx code-agent-eval --show-skill` — full scorer and config reference (also printed by `--show-skill`)
 
 ## License
 

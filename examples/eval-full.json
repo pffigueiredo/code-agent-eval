@@ -1,0 +1,63 @@
+{
+	"name": "full-vocab-demo",
+	"prompts": [
+		{
+			"id": "v1",
+			"prompt": "Add a greeting function to src/greet.ts and update README.md with usage instructions."
+		}
+	],
+	"projectDir": ".",
+	"scorers": [
+		{ "type": "build" },
+		{ "type": "test" },
+		{ "type": "lint" },
+		{
+			"type": "command",
+			"name": "typecheck",
+			"command": "npm",
+			"args": ["run", "typecheck"]
+		},
+		{
+			"type": "file",
+			"name": "readme-updated",
+			"path": "README.md",
+			"exists": true,
+			"contains": "greet"
+		},
+		{
+			"type": "diff-contains",
+			"name": "added-greet-ts",
+			"pattern": "\\+\\+\\+ b/src/greet\\.ts",
+			"expect": "present"
+		},
+		{ "type": "skill-picked-up", "skill": "read-file" },
+		{
+			"type": "all",
+			"name": "quality-gate",
+			"of": [
+				{ "type": "build" },
+				{
+					"type": "file",
+					"path": "README.md",
+					"exists": true
+				}
+			]
+		},
+		{
+			"type": "any",
+			"name": "touched-docs-or-src",
+			"of": [
+				{
+					"type": "diff-contains",
+					"pattern": "README",
+					"expect": "present"
+				},
+				{
+					"type": "diff-contains",
+					"pattern": "src/",
+					"expect": "present"
+				}
+			]
+		}
+	]
+}

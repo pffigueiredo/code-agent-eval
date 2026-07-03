@@ -1,0 +1,29 @@
+{
+	"$schema": "https://unpkg.com/code-agent-eval/schema.json",
+	"name": "add-health-endpoint",
+	"prompts": [
+		{
+			"id": "v1",
+			"prompt": "Add a /health endpoint that returns { status: \"ok\" }"
+		}
+	],
+	"projectDir": ".",
+	"iterations": 3,
+	"scorers": [
+		{ "type": "build" },
+		{
+			"type": "file",
+			"name": "health-route-exists",
+			"path": "src/routes/health.ts",
+			"exists": true,
+			"contains": "status"
+		},
+		{
+			"type": "diff-contains",
+			"name": "added-health-route",
+			"pattern": "\\+\\+\\+ b/src/routes/health\\.ts",
+			"expect": "present"
+		},
+		{ "type": "skill-picked-up", "skill": "read-file" }
+	]
+}
