@@ -386,6 +386,46 @@ describe('CLI: --output artifacts', () => {
   }, 120000);
 });
 
+describe('CLI: GitHub Step Summary', () => {
+  // Dummy key lets the run execute; every iteration fails deterministically,
+  // but the result is still produced and the summary is appended.
+  const failEnv = { ANTHROPIC_API_KEY: 'sk-dummy', CLAUDECODE: '' };
+
+  it('appends a summary to $GITHUB_STEP_SUMMARY', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-sum-'));
+    const summaryPath = path.join(dir, 'summary.md');
+    try {
+      await run(['--eval-file', EVAL_FILE, '--no-agent-detect'], {
+        ...failEnv,
+        GITHUB_STEP_SUMMARY: summaryPath,
+      });
+      expect(fs.existsSync(summaryPath)).toBe(true);
+      const content = fs.readFileSync(summaryPath, 'utf-8');
+      expect(content).toContain('Eval:');
+      expect(content).toContain('Pass Rate');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }, 120000);
+
+  it('appends rather than overwriting existing content', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-sum-'));
+    const summaryPath = path.join(dir, 'summary.md');
+    fs.writeFileSync(summaryPath, 'PRE-EXISTING\n', 'utf-8');
+    try {
+      await run(['--eval-file', EVAL_FILE, '--no-agent-detect'], {
+        ...failEnv,
+        GITHUB_STEP_SUMMARY: summaryPath,
+      });
+      const content = fs.readFileSync(summaryPath, 'utf-8');
+      expect(content).toContain('PRE-EXISTING');
+      expect(content).toContain('Eval:');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }, 120000);
+});
+
 describe('CLI: ANTHROPIC_API_KEY preflight', () => {
   const noKey = { ANTHROPIC_API_KEY: undefined, CLAUDECODE: '' };
 

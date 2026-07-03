@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { writeResults, writeResultsAsJson, formatResultsAsMarkdown, formatResultsAsJUnit } from '../src/results-writer';
+import { writeResults, writeResultsAsJson, formatResultsAsMarkdown, formatResultsAsJUnit, formatResultsAsGitHubSummary } from '../src/results-writer';
 import type { EvalResult } from '../src/types';
 import fs from 'fs-extra';
 import os from 'os';
@@ -288,5 +288,69 @@ describe('formatResultsAsJUnit', () => {
     expect(xml).toContain('&apos;');
     // raw unescaped forms should not leak into the failure body
     expect(xml).not.toContain('<a>');
+  });
+});
+
+describe('formatResultsAsGitHubSummary', () => {
+  test('includes status, pass rate, and iteration counts', () => {
+    const summary = formatResultsAsGitHubSummary(createMockResult());
+    expect(summary).toContain('test-eval');
+    expect(summary).toContain('PASSED');
+    expect(summary).toContain('Pass Rate');
+    expect(summary).toContain('100.0%');
+    expect(summary).toContain('1/1 passed');
+  });
+
+  test('reports FAILED status for a failing run', () => {
+    const summary = formatResultsAsGitHubSummary(
+      createMockResult({
+        success: false,
+        aggregateScores: {
+          build: { mean: 0, min: 0, max: 0, stdDev: 0, passRate: 0 },
+          _overall: { mean: 0, min: 0, max: 0, stdDev: 0, passRate: 0 },
+        },
+      })
+    );
+    expect(summary).toContain('FAILED');
+    expect(summary).toContain('0.0%');
+  });
+
+  test('includes per-prompt breakdown for multiple prompts', () => {
+    const summary = formatResultsAsGitHubSummary(
+      createMockResult({
+        iterations: [
+          {
+            iterationId: 0,
+            promptId: 'v1',
+            success: true,
+            duration: 1000,
+            scores: { build: { score: 1.0, reason: 'ok' } },
+            agentOutput: '',
+            environmentVariables: {},
+          },
+          {
+            iterationId: 0,
+            promptId: 'v2',
+            success: false,
+            duration: 1000,
+            scores: { build: { score: 0, reason: 'fail' } },
+            agentOutput: '',
+            environmentVariables: {},
+          },
+        ],
+      })
+    );
+    expect(summary).toContain('### Prompts');
+    expect(summary).toContain('v1');
+    expect(summary).toContain('v2');
+  });
+
+  test('includes per-scorer breakdown and excludes _overall', () => {
+    const summary = formatResultsAsGitHubSummary(createMockResult());
+    expect(summary).toContain('### Scorers');
+    expect(summary).toContain('build');
+    expect(summary).toContain('test');
+    // _overall should not appear in the scorer table
+    expect(summary).not.toContain('_overall');
   });
 });

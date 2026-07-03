@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { parseArgs, format } from 'node:util';
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
+import { readFileSync, appendFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { detectAgenticEnvironment } from 'am-i-vibing';
@@ -13,6 +13,7 @@ import type { EvalResult } from './types';
 import {
   formatResultsAsJUnit,
   formatResultsAsMarkdown,
+  formatResultsAsGitHubSummary,
 } from './results-writer';
 import { resolveOutputMode } from './agent-detect';
 import type { AgentDetectionResult } from './agent-detect';
@@ -64,6 +65,8 @@ Options:
   --output <path>        Write an artifact; format inferred from extension
                          (.xml/.junit.xml → JUnit, .json → JSON, .md → Markdown).
                          Repeatable.
+  --github-summary       Append a Markdown summary to \$GITHUB_STEP_SUMMARY
+                         (auto-enabled when that env var is set)
   --json                 Output results as JSON to stdout
   --dry-run              Validate config and show execution plan
   --show-skill           Print agent skill guide (eval config format, scorers, examples)
@@ -99,6 +102,7 @@ async function main() {
         verbose: { type: 'boolean', default: false },
         'results-dir': { type: 'string' },
         output: { type: 'string', multiple: true },
+        'github-summary': { type: 'boolean', default: false },
         json: { type: 'boolean', default: false },
         'dry-run': { type: 'boolean', default: false },
         'agent-detect': { type: 'boolean', default: true },
@@ -433,6 +437,15 @@ async function main() {
     const formatter = formatterForPath(outputPath)!;
     writeFileSync(outputPath, formatter(result), 'utf-8');
     if (!isJson) stdout(`  Wrote artifact:  ${outputPath}`);
+  }
+
+  // Append a GitHub Step Summary when $GITHUB_STEP_SUMMARY is set — the env var
+  // is itself the opt-in signal, and --github-summary can't write without it
+  // (it needs that path as the target file).
+  const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+  if (summaryPath) {
+    appendFileSync(summaryPath, formatResultsAsGitHubSummary(result), 'utf-8');
+    if (!isJson) stdout(`  Wrote summary:   ${summaryPath}`);
   }
 
   const overall =

@@ -340,6 +340,74 @@ export function formatResultsAsJUnit(result: EvalResult): string {
 }
 
 /**
+ * Format evaluation results as a compact GitHub Step Summary (Markdown).
+ *
+ * Intended to be appended to `$GITHUB_STEP_SUMMARY`. Contains status, overall
+ * pass rate, a per-prompt breakdown, and a per-scorer breakdown. No tokens, no
+ * API calls. The synthetic `_overall` aggregate is excluded from the scorer
+ * table (its pass rate is surfaced as the headline instead).
+ */
+export function formatResultsAsGitHubSummary(result: EvalResult): string {
+  const lines: string[] = [];
+
+  const overallPassRate = result.aggregateScores._overall?.passRate;
+  const statusIcon = result.success ? '✅' : '❌';
+  const statusLabel = result.success ? 'PASSED' : 'FAILED';
+
+  lines.push(`## ${statusIcon} Eval: ${result.evalName} — ${statusLabel}`);
+  lines.push('');
+
+  const passedCount = result.iterations.filter((i) => i.success).length;
+  const total = result.iterations.length;
+  lines.push(`- **Status**: ${statusLabel}`);
+  if (overallPassRate !== undefined) {
+    lines.push(`- **Pass Rate**: ${(overallPassRate * 100).toFixed(1)}%`);
+  }
+  lines.push(`- **Iterations**: ${passedCount}/${total} passed`);
+  lines.push(`- **Duration**: ${(result.duration / 1000).toFixed(2)}s`);
+  if (result.error) {
+    lines.push(`- **Error**: ${result.error}`);
+  }
+  lines.push('');
+
+  // Per-prompt breakdown
+  const promptIds = [...new Set(result.iterations.map((i) => i.promptId))];
+  lines.push('### Prompts');
+  lines.push('');
+  lines.push('| Prompt | Pass Rate | Runs |');
+  lines.push('|--------|-----------|------|');
+  for (const promptId of promptIds) {
+    const promptResults = result.iterations.filter(
+      (i) => i.promptId === promptId
+    );
+    const passRate =
+      promptResults.filter((r) => r.success).length / promptResults.length;
+    lines.push(
+      `| ${promptId} | ${(passRate * 100).toFixed(1)}% | ${promptResults.length} |`
+    );
+  }
+  lines.push('');
+
+  // Per-scorer breakdown (exclude _overall)
+  const scorerNames = Object.keys(result.aggregateScores).filter(
+    (name) => name !== '_overall'
+  );
+  if (scorerNames.length > 0) {
+    lines.push('### Scorers');
+    lines.push('');
+    lines.push('| Scorer | Pass Rate |');
+    lines.push('|--------|-----------|');
+    for (const name of scorerNames) {
+      const agg = result.aggregateScores[name];
+      lines.push(`| ${name} | ${(agg.passRate * 100).toFixed(1)}% |`);
+    }
+    lines.push('');
+  }
+
+  return lines.join('\n') + '\n';
+}
+
+/**
  * Write evaluation results as JSON file
  * @param result - The evaluation result to write
  * @param filePath - Path where JSON should be written
