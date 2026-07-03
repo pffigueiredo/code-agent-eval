@@ -1,5 +1,10 @@
 #!/usr/bin/env node
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+	appendFileSync,
+	mkdirSync,
+	readFileSync,
+	writeFileSync,
+} from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,14 +14,14 @@ import { z } from "zod";
 import type { AgentDetectionResult } from "./agent-detect";
 import { resolveOutputMode } from "./agent-detect";
 import { collectScriptScorers, loadEvalFile } from "./eval-config-loader";
-import type { EvalConfig } from "./runner";
-import { runClaudeCodeEval } from "./runner";
 import {
 	formatResultsAsGitHubSummary,
 	formatResultsAsJson,
 	formatResultsAsJUnit,
 	formatResultsAsMarkdown,
 } from "./results-writer";
+import type { EvalConfig } from "./runner";
+import { runClaudeCodeEval } from "./runner";
 import { validateScriptScorer } from "./scorers/registry";
 import { jsonConfigSchema } from "./scorers/schema";
 import type { EvalResult } from "./types";

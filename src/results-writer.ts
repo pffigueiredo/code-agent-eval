@@ -28,7 +28,7 @@ function sanitizeForFilename(name: string): string {
  * split the cell and newlines would break the row.
  */
 function escapeMarkdownCell(value: string): string {
-  return value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+	return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 }
 
 /**
@@ -36,17 +36,17 @@ function escapeMarkdownCell(value: string): string {
  * formatters so they can't drift.
  */
 function perPromptStats(
-  result: EvalResult
+	result: EvalResult,
 ): Array<{ promptId: string; passRate: number; runs: number }> {
-  const promptIds = [...new Set(result.iterations.map((i) => i.promptId))];
-  return promptIds.map((promptId) => {
-    const runs = result.iterations.filter((i) => i.promptId === promptId);
-    return {
-      promptId,
-      runs: runs.length,
-      passRate: runs.filter((r) => r.success).length / runs.length,
-    };
-  });
+	const promptIds = [...new Set(result.iterations.map((i) => i.promptId))];
+	return promptIds.map((promptId) => {
+		const runs = result.iterations.filter((i) => i.promptId === promptId);
+		return {
+			promptId,
+			runs: runs.length,
+			passRate: runs.filter((r) => r.success).length / runs.length,
+		};
+	});
 }
 
 /**
@@ -307,12 +307,12 @@ export function formatResultsAsMarkdown(result: EvalResult): string {
  * Escape a string for safe inclusion in XML text or attribute values.
  */
 function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+	return value
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&apos;");
 }
 
 /**
@@ -323,70 +323,70 @@ function escapeXml(value: string): string {
  * (or the iteration error). The synthetic `_overall` aggregate is excluded.
  */
 export function formatResultsAsJUnit(result: EvalResult): string {
-  const promptIds = [...new Set(result.iterations.map((i) => i.promptId))];
+	const promptIds = [...new Set(result.iterations.map((i) => i.promptId))];
 
-  const totalTests = result.iterations.length;
-  const totalFailures = result.iterations.filter((i) => !i.success).length;
-  const totalTime = (result.duration / 1000).toFixed(3);
+	const totalTests = result.iterations.length;
+	const totalFailures = result.iterations.filter((i) => !i.success).length;
+	const totalTime = (result.duration / 1000).toFixed(3);
 
-  const lines: string[] = [];
-  lines.push('<?xml version="1.0" encoding="UTF-8"?>');
-  lines.push(
-    `<testsuites name="${escapeXml(result.evalName)}" tests="${totalTests}" failures="${totalFailures}" time="${totalTime}">`
-  );
+	const lines: string[] = [];
+	lines.push('<?xml version="1.0" encoding="UTF-8"?>');
+	lines.push(
+		`<testsuites name="${escapeXml(result.evalName)}" tests="${totalTests}" failures="${totalFailures}" time="${totalTime}">`,
+	);
 
-  for (const promptId of promptIds) {
-    const iterations = result.iterations.filter((i) => i.promptId === promptId);
-    const failures = iterations.filter((i) => !i.success).length;
-    const suiteTime = (
-      iterations.reduce((sum, i) => sum + i.duration, 0) / 1000
-    ).toFixed(3);
+	for (const promptId of promptIds) {
+		const iterations = result.iterations.filter((i) => i.promptId === promptId);
+		const failures = iterations.filter((i) => !i.success).length;
+		const suiteTime = (
+			iterations.reduce((sum, i) => sum + i.duration, 0) / 1000
+		).toFixed(3);
 
-    lines.push(
-      `  <testsuite name="${escapeXml(promptId)}" tests="${iterations.length}" failures="${failures}" time="${suiteTime}">`
-    );
+		lines.push(
+			`  <testsuite name="${escapeXml(promptId)}" tests="${iterations.length}" failures="${failures}" time="${suiteTime}">`,
+		);
 
-    for (const iter of iterations) {
-      const caseName = `iteration ${iter.iterationId}`;
-      const caseTime = (iter.duration / 1000).toFixed(3);
-      const classname = `${result.evalName}.${promptId}`;
+		for (const iter of iterations) {
+			const caseName = `iteration ${iter.iterationId}`;
+			const caseTime = (iter.duration / 1000).toFixed(3);
+			const classname = `${result.evalName}.${promptId}`;
 
-      if (iter.success) {
-        lines.push(
-          `    <testcase name="${escapeXml(caseName)}" classname="${escapeXml(classname)}" time="${caseTime}" />`
-        );
-      } else {
-        const failingScorers = Object.entries(iter.scores).filter(
-          ([, s]) => s.score < 1
-        );
-        const message =
-          failingScorers.length > 0
-            ? failingScorers.map(([name]) => name).join(', ')
-            : (iter.error ?? 'iteration failed');
-        const bodyParts: string[] = [];
-        for (const [name, score] of failingScorers) {
-          bodyParts.push(`${name}: ${score.reason}`);
-        }
-        if (iter.error) {
-          bodyParts.push(`error: ${iter.error}`);
-        }
-        const body = bodyParts.join('\n');
+			if (iter.success) {
+				lines.push(
+					`    <testcase name="${escapeXml(caseName)}" classname="${escapeXml(classname)}" time="${caseTime}" />`,
+				);
+			} else {
+				const failingScorers = Object.entries(iter.scores).filter(
+					([, s]) => s.score < 1,
+				);
+				const message =
+					failingScorers.length > 0
+						? failingScorers.map(([name]) => name).join(", ")
+						: (iter.error ?? "iteration failed");
+				const bodyParts: string[] = [];
+				for (const [name, score] of failingScorers) {
+					bodyParts.push(`${name}: ${score.reason}`);
+				}
+				if (iter.error) {
+					bodyParts.push(`error: ${iter.error}`);
+				}
+				const body = bodyParts.join("\n");
 
-        lines.push(
-          `    <testcase name="${escapeXml(caseName)}" classname="${escapeXml(classname)}" time="${caseTime}">`
-        );
-        lines.push(
-          `      <failure message="${escapeXml(message)}">${escapeXml(body)}</failure>`
-        );
-        lines.push('    </testcase>');
-      }
-    }
+				lines.push(
+					`    <testcase name="${escapeXml(caseName)}" classname="${escapeXml(classname)}" time="${caseTime}">`,
+				);
+				lines.push(
+					`      <failure message="${escapeXml(message)}">${escapeXml(body)}</failure>`,
+				);
+				lines.push("    </testcase>");
+			}
+		}
 
-    lines.push('  </testsuite>');
-  }
+		lines.push("  </testsuite>");
+	}
 
-  lines.push('</testsuites>');
-  return lines.join('\n') + '\n';
+	lines.push("</testsuites>");
+	return `${lines.join("\n")}\n`;
 }
 
 /**
@@ -398,59 +398,59 @@ export function formatResultsAsJUnit(result: EvalResult): string {
  * table (its pass rate is surfaced as the headline instead).
  */
 export function formatResultsAsGitHubSummary(result: EvalResult): string {
-  const lines: string[] = [];
+	const lines: string[] = [];
 
-  const overallPassRate = result.aggregateScores._overall?.passRate;
-  const statusIcon = result.success ? '✅' : '❌';
-  const statusLabel = result.success ? 'PASSED' : 'FAILED';
+	const overallPassRate = result.aggregateScores._overall?.passRate;
+	const statusIcon = result.success ? "✅" : "❌";
+	const statusLabel = result.success ? "PASSED" : "FAILED";
 
-  lines.push(`## ${statusIcon} Eval: ${result.evalName} — ${statusLabel}`);
-  lines.push('');
+	lines.push(`## ${statusIcon} Eval: ${result.evalName} — ${statusLabel}`);
+	lines.push("");
 
-  const passedCount = result.iterations.filter((i) => i.success).length;
-  const total = result.iterations.length;
-  lines.push(`- **Status**: ${statusLabel}`);
-  if (overallPassRate !== undefined) {
-    lines.push(`- **Pass Rate**: ${(overallPassRate * 100).toFixed(1)}%`);
-  }
-  lines.push(`- **Iterations**: ${passedCount}/${total} passed`);
-  lines.push(`- **Duration**: ${(result.duration / 1000).toFixed(2)}s`);
-  if (result.error) {
-    lines.push(`- **Error**: ${result.error}`);
-  }
-  lines.push('');
+	const passedCount = result.iterations.filter((i) => i.success).length;
+	const total = result.iterations.length;
+	lines.push(`- **Status**: ${statusLabel}`);
+	if (overallPassRate !== undefined) {
+		lines.push(`- **Pass Rate**: ${(overallPassRate * 100).toFixed(1)}%`);
+	}
+	lines.push(`- **Iterations**: ${passedCount}/${total} passed`);
+	lines.push(`- **Duration**: ${(result.duration / 1000).toFixed(2)}s`);
+	if (result.error) {
+		lines.push(`- **Error**: ${result.error}`);
+	}
+	lines.push("");
 
-  // Per-prompt breakdown
-  lines.push('### Prompts');
-  lines.push('');
-  lines.push('| Prompt | Pass Rate | Runs |');
-  lines.push('|--------|-----------|------|');
-  for (const { promptId, passRate, runs } of perPromptStats(result)) {
-    lines.push(
-      `| ${escapeMarkdownCell(promptId)} | ${(passRate * 100).toFixed(1)}% | ${runs} |`
-    );
-  }
-  lines.push('');
+	// Per-prompt breakdown
+	lines.push("### Prompts");
+	lines.push("");
+	lines.push("| Prompt | Pass Rate | Runs |");
+	lines.push("|--------|-----------|------|");
+	for (const { promptId, passRate, runs } of perPromptStats(result)) {
+		lines.push(
+			`| ${escapeMarkdownCell(promptId)} | ${(passRate * 100).toFixed(1)}% | ${runs} |`,
+		);
+	}
+	lines.push("");
 
-  // Per-scorer breakdown (exclude _overall)
-  const scorerNames = Object.keys(result.aggregateScores).filter(
-    (name) => name !== '_overall'
-  );
-  if (scorerNames.length > 0) {
-    lines.push('### Scorers');
-    lines.push('');
-    lines.push('| Scorer | Pass Rate |');
-    lines.push('|--------|-----------|');
-    for (const name of scorerNames) {
-      const agg = result.aggregateScores[name];
-      lines.push(
-        `| ${escapeMarkdownCell(name)} | ${(agg.passRate * 100).toFixed(1)}% |`
-      );
-    }
-    lines.push('');
-  }
+	// Per-scorer breakdown (exclude _overall)
+	const scorerNames = Object.keys(result.aggregateScores).filter(
+		(name) => name !== "_overall",
+	);
+	if (scorerNames.length > 0) {
+		lines.push("### Scorers");
+		lines.push("");
+		lines.push("| Scorer | Pass Rate |");
+		lines.push("|--------|-----------|");
+		for (const name of scorerNames) {
+			const agg = result.aggregateScores[name];
+			lines.push(
+				`| ${escapeMarkdownCell(name)} | ${(agg.passRate * 100).toFixed(1)}% |`,
+			);
+		}
+		lines.push("");
+	}
 
-  return lines.join('\n') + '\n';
+	return `${lines.join("\n")}\n`;
 }
 
 /**
@@ -458,7 +458,7 @@ export function formatResultsAsGitHubSummary(result: EvalResult): string {
  * truth for the on-disk JSON shape.
  */
 export function formatResultsAsJson(result: EvalResult): string {
-  return JSON.stringify(result, null, 2);
+	return JSON.stringify(result, null, 2);
 }
 
 /**

@@ -284,244 +284,255 @@ describe("CLI: --dry-run", () => {
 	});
 });
 
-describe('CLI: --threshold gating', () => {
-  // Dummy key lets the run execute; all iterations fail → passRate 0.
-  const failEnv = { ANTHROPIC_API_KEY: 'sk-dummy', CLAUDECODE: '' };
+describe("CLI: --threshold gating", () => {
+	// Dummy key lets the run execute; all iterations fail → passRate 0.
+	const failEnv = { ANTHROPIC_API_KEY: "sk-dummy", CLAUDECODE: "" };
 
-  it('surfaces the resolved threshold in the dry-run plan', async () => {
-    const { stdout } = await run(
-      ['--dry-run', '--json', '--eval-file', EVAL_FILE, '--threshold', '0.5'],
-      { CLAUDECODE: '' }
-    );
-    const parsed = JSON.parse(stdout);
-    expect(parsed.data.threshold).toBe(0.5);
-  });
+	it("surfaces the resolved threshold in the dry-run plan", async () => {
+		const { stdout } = await run(
+			["--dry-run", "--json", "--eval-file", EVAL_FILE, "--threshold", "0.5"],
+			{ CLAUDECODE: "" },
+		);
+		const parsed = JSON.parse(stdout);
+		expect(parsed.data.threshold).toBe(0.5);
+	});
 
-  it('defaults threshold to 1.0 in the dry-run plan', async () => {
-    const { stdout } = await run(
-      ['--dry-run', '--json', '--eval-file', EVAL_FILE],
-      { CLAUDECODE: '' }
-    );
-    const parsed = JSON.parse(stdout);
-    expect(parsed.data.threshold).toBe(1);
-  });
+	it("defaults threshold to 1.0 in the dry-run plan", async () => {
+		const { stdout } = await run(
+			["--dry-run", "--json", "--eval-file", EVAL_FILE],
+			{ CLAUDECODE: "" },
+		);
+		const parsed = JSON.parse(stdout);
+		expect(parsed.data.threshold).toBe(1);
+	});
 
-  it('exits 2 on out-of-range --threshold', async () => {
-    const { exitCode, stderr } = await run(
-      ['--eval-file', EVAL_FILE, '--threshold', '1.5', '--no-agent-detect'],
-      failEnv
-    );
-    expect(exitCode).toBe(2);
-    expect(stderr).toContain('--threshold');
-  });
+	it("exits 2 on out-of-range --threshold", async () => {
+		const { exitCode, stderr } = await run(
+			["--eval-file", EVAL_FILE, "--threshold", "1.5", "--no-agent-detect"],
+			failEnv,
+		);
+		expect(exitCode).toBe(2);
+		expect(stderr).toContain("--threshold");
+	});
 
-  it('--threshold 0 passes an all-failing run (exit 0)', async () => {
-    const { exitCode } = await run(
-      ['--eval-file', EVAL_FILE, '--threshold', '0', '--no-agent-detect'],
-      failEnv
-    );
-    expect(exitCode).toBe(0);
-  }, 120000);
+	it("--threshold 0 passes an all-failing run (exit 0)", async () => {
+		const { exitCode } = await run(
+			["--eval-file", EVAL_FILE, "--threshold", "0", "--no-agent-detect"],
+			failEnv,
+		);
+		expect(exitCode).toBe(0);
+	}, 120000);
 
-  it('JSON status/verdict agree with the threshold exit code', async () => {
-    const { exitCode, stdout } = await run(
-      ['--eval-file', EVAL_FILE, '--threshold', '0', '--json'],
-      failEnv
-    );
-    expect(exitCode).toBe(0);
-    const parsed = JSON.parse(stdout);
-    // Verdict is threshold-based → passes; raw success stays false.
-    expect(parsed.status).toBe('ok');
-    expect(parsed.data.verdict).toBe('pass');
-    expect(parsed.data.threshold).toBe(0);
-    expect(parsed.data.success).toBe(false);
-  }, 120000);
+	it("JSON status/verdict agree with the threshold exit code", async () => {
+		const { exitCode, stdout } = await run(
+			["--eval-file", EVAL_FILE, "--threshold", "0", "--json"],
+			failEnv,
+		);
+		expect(exitCode).toBe(0);
+		const parsed = JSON.parse(stdout);
+		// Verdict is threshold-based → passes; raw success stays false.
+		expect(parsed.status).toBe("ok");
+		expect(parsed.data.verdict).toBe("pass");
+		expect(parsed.data.threshold).toBe(0);
+		expect(parsed.data.success).toBe(false);
+	}, 120000);
 
-  it('default threshold fails an all-failing run (exit 1)', async () => {
-    const { exitCode } = await run(
-      ['--eval-file', EVAL_FILE, '--no-agent-detect'],
-      failEnv
-    );
-    expect(exitCode).toBe(1);
-  }, 120000);
+	it("default threshold fails an all-failing run (exit 1)", async () => {
+		const { exitCode } = await run(
+			["--eval-file", EVAL_FILE, "--no-agent-detect"],
+			failEnv,
+		);
+		expect(exitCode).toBe(1);
+	}, 120000);
 
-  it('honors CODE_AGENT_EVAL_THRESHOLD env override', async () => {
-    const { exitCode } = await run(
-      ['--eval-file', EVAL_FILE, '--no-agent-detect'],
-      { ...failEnv, CODE_AGENT_EVAL_THRESHOLD: '0' }
-    );
-    expect(exitCode).toBe(0);
-  }, 120000);
+	it("honors CODE_AGENT_EVAL_THRESHOLD env override", async () => {
+		const { exitCode } = await run(
+			["--eval-file", EVAL_FILE, "--no-agent-detect"],
+			{ ...failEnv, CODE_AGENT_EVAL_THRESHOLD: "0" },
+		);
+		expect(exitCode).toBe(0);
+	}, 120000);
 });
 
-describe('CLI: --output artifacts', () => {
-  // Dummy key lets the run execute; all iterations fail but a result is produced.
-  const failEnv = { ANTHROPIC_API_KEY: 'sk-dummy', CLAUDECODE: '' };
+describe("CLI: --output artifacts", () => {
+	// Dummy key lets the run execute; all iterations fail but a result is produced.
+	const failEnv = { ANTHROPIC_API_KEY: "sk-dummy", CLAUDECODE: "" };
 
-  it('exits 2 on unknown --output extension (before the run)', async () => {
-    const { exitCode, stderr } = await run(
-      ['--eval-file', EVAL_FILE, '--output', './out.txt', '--no-agent-detect'],
-      failEnv
-    );
-    expect(exitCode).toBe(2);
-    expect(stderr).toContain('--output');
-  });
+	it("exits 2 on unknown --output extension (before the run)", async () => {
+		const { exitCode, stderr } = await run(
+			["--eval-file", EVAL_FILE, "--output", "./out.txt", "--no-agent-detect"],
+			failEnv,
+		);
+		expect(exitCode).toBe(2);
+		expect(stderr).toContain("--output");
+	});
 
-  it('writes JUnit XML for a .xml --output', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-out-'));
-    const xmlPath = path.join(dir, 'out.xml');
-    try {
-      await run(
-        ['--eval-file', EVAL_FILE, '--output', xmlPath, '--no-agent-detect'],
-        failEnv
-      );
-      expect(fs.existsSync(xmlPath)).toBe(true);
-      const content = fs.readFileSync(xmlPath, 'utf-8');
-      expect(content).toContain('<?xml version="1.0"');
-      expect(content).toContain('<testsuites');
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
-  }, 120000);
+	it("writes JUnit XML for a .xml --output", async () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cae-out-"));
+		const xmlPath = path.join(dir, "out.xml");
+		try {
+			await run(
+				["--eval-file", EVAL_FILE, "--output", xmlPath, "--no-agent-detect"],
+				failEnv,
+			);
+			expect(fs.existsSync(xmlPath)).toBe(true);
+			const content = fs.readFileSync(xmlPath, "utf-8");
+			expect(content).toContain('<?xml version="1.0"');
+			expect(content).toContain("<testsuites");
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	}, 120000);
 
-  it('writes JSON for a .json --output', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-out-'));
-    const jsonPath = path.join(dir, 'out.json');
-    try {
-      await run(
-        ['--eval-file', EVAL_FILE, '--output', jsonPath, '--no-agent-detect'],
-        failEnv
-      );
-      expect(fs.existsSync(jsonPath)).toBe(true);
-      const parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-      expect(parsed.evalName).toBeDefined();
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
-  }, 120000);
+	it("writes JSON for a .json --output", async () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cae-out-"));
+		const jsonPath = path.join(dir, "out.json");
+		try {
+			await run(
+				["--eval-file", EVAL_FILE, "--output", jsonPath, "--no-agent-detect"],
+				failEnv,
+			);
+			expect(fs.existsSync(jsonPath)).toBe(true);
+			const parsed = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+			expect(parsed.evalName).toBeDefined();
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	}, 120000);
 
-  it('creates missing parent directories for --output', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-out-'));
-    const nested = path.join(dir, 'a', 'b', 'out.xml');
-    try {
-      const { exitCode } = await run(
-        ['--eval-file', EVAL_FILE, '--output', nested, '--threshold', '0', '--no-agent-detect'],
-        failEnv
-      );
-      // Threshold 0 → verdict pass → exit 0 (not a FATAL write crash).
-      expect(exitCode).toBe(0);
-      expect(fs.existsSync(nested)).toBe(true);
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
-  }, 120000);
+	it("creates missing parent directories for --output", async () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cae-out-"));
+		const nested = path.join(dir, "a", "b", "out.xml");
+		try {
+			const { exitCode } = await run(
+				[
+					"--eval-file",
+					EVAL_FILE,
+					"--output",
+					nested,
+					"--threshold",
+					"0",
+					"--no-agent-detect",
+				],
+				failEnv,
+			);
+			// Threshold 0 → verdict pass → exit 0 (not a FATAL write crash).
+			expect(exitCode).toBe(0);
+			expect(fs.existsSync(nested)).toBe(true);
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	}, 120000);
 
-  it('writes both when --output is repeated', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-out-'));
-    const xmlPath = path.join(dir, 'out.xml');
-    const jsonPath = path.join(dir, 'out.json');
-    try {
-      await run(
-        [
-          '--eval-file', EVAL_FILE,
-          '--output', xmlPath,
-          '--output', jsonPath,
-          '--no-agent-detect',
-        ],
-        failEnv
-      );
-      expect(fs.existsSync(xmlPath)).toBe(true);
-      expect(fs.existsSync(jsonPath)).toBe(true);
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
-  }, 120000);
+	it("writes both when --output is repeated", async () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cae-out-"));
+		const xmlPath = path.join(dir, "out.xml");
+		const jsonPath = path.join(dir, "out.json");
+		try {
+			await run(
+				[
+					"--eval-file",
+					EVAL_FILE,
+					"--output",
+					xmlPath,
+					"--output",
+					jsonPath,
+					"--no-agent-detect",
+				],
+				failEnv,
+			);
+			expect(fs.existsSync(xmlPath)).toBe(true);
+			expect(fs.existsSync(jsonPath)).toBe(true);
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	}, 120000);
 });
 
-describe('CLI: GitHub Step Summary', () => {
-  // Dummy key lets the run execute; all iterations fail but a result is produced.
-  const failEnv = { ANTHROPIC_API_KEY: 'sk-dummy', CLAUDECODE: '' };
+describe("CLI: GitHub Step Summary", () => {
+	// Dummy key lets the run execute; all iterations fail but a result is produced.
+	const failEnv = { ANTHROPIC_API_KEY: "sk-dummy", CLAUDECODE: "" };
 
-  it('appends a summary to $GITHUB_STEP_SUMMARY', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-sum-'));
-    const summaryPath = path.join(dir, 'summary.md');
-    try {
-      await run(['--eval-file', EVAL_FILE, '--no-agent-detect'], {
-        ...failEnv,
-        GITHUB_STEP_SUMMARY: summaryPath,
-      });
-      expect(fs.existsSync(summaryPath)).toBe(true);
-      const content = fs.readFileSync(summaryPath, 'utf-8');
-      expect(content).toContain('Eval:');
-      expect(content).toContain('Pass Rate');
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
-  }, 120000);
+	it("appends a summary to $GITHUB_STEP_SUMMARY", async () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cae-sum-"));
+		const summaryPath = path.join(dir, "summary.md");
+		try {
+			await run(["--eval-file", EVAL_FILE, "--no-agent-detect"], {
+				...failEnv,
+				GITHUB_STEP_SUMMARY: summaryPath,
+			});
+			expect(fs.existsSync(summaryPath)).toBe(true);
+			const content = fs.readFileSync(summaryPath, "utf-8");
+			expect(content).toContain("Eval:");
+			expect(content).toContain("Pass Rate");
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	}, 120000);
 
-  it('appends rather than overwriting existing content', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-sum-'));
-    const summaryPath = path.join(dir, 'summary.md');
-    fs.writeFileSync(summaryPath, 'PRE-EXISTING\n', 'utf-8');
-    try {
-      await run(['--eval-file', EVAL_FILE, '--no-agent-detect'], {
-        ...failEnv,
-        GITHUB_STEP_SUMMARY: summaryPath,
-      });
-      const content = fs.readFileSync(summaryPath, 'utf-8');
-      expect(content).toContain('PRE-EXISTING');
-      expect(content).toContain('Eval:');
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
-  }, 120000);
+	it("appends rather than overwriting existing content", async () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cae-sum-"));
+		const summaryPath = path.join(dir, "summary.md");
+		fs.writeFileSync(summaryPath, "PRE-EXISTING\n", "utf-8");
+		try {
+			await run(["--eval-file", EVAL_FILE, "--no-agent-detect"], {
+				...failEnv,
+				GITHUB_STEP_SUMMARY: summaryPath,
+			});
+			const content = fs.readFileSync(summaryPath, "utf-8");
+			expect(content).toContain("PRE-EXISTING");
+			expect(content).toContain("Eval:");
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	}, 120000);
 });
 
-describe('CLI: ANTHROPIC_API_KEY preflight', () => {
-  const noKey = { ANTHROPIC_API_KEY: undefined, CLAUDECODE: '' };
+describe("CLI: ANTHROPIC_API_KEY preflight", () => {
+	const noKey = { ANTHROPIC_API_KEY: undefined, CLAUDECODE: "" };
 
-  it('exits 69 with an actionable message when the key is unset', async () => {
-    const { exitCode, stderr } = await run(
-      ['--eval-file', EVAL_FILE, '--no-agent-detect'],
-      noKey
-    );
-    expect(exitCode).toBe(69);
-    expect(stderr).toContain('ANTHROPIC_API_KEY');
-    expect(stderr).toContain('Fix:');
-  });
+	it("exits 69 with an actionable message when the key is unset", async () => {
+		const { exitCode, stderr } = await run(
+			["--eval-file", EVAL_FILE, "--no-agent-detect"],
+			noKey,
+		);
+		expect(exitCode).toBe(69);
+		expect(stderr).toContain("ANTHROPIC_API_KEY");
+		expect(stderr).toContain("Fix:");
+	});
 
-  it('emits a JSON error envelope in --json mode', async () => {
-    const { stdout, exitCode } = await run(
-      ['--json', '--eval-file', EVAL_FILE],
-      noKey
-    );
-    expect(exitCode).toBe(69);
-    const parsed = JSON.parse(stdout);
-    expect(parsed.status).toBe('error');
-    expect(parsed.error.code).toBe('MISSING_API_KEY');
-    expect(parsed.error.fix).toBeDefined();
-    expect(parsed.error.transient).toBe(false);
-    expect(parsed.agentDetection).toBeDefined();
-  });
+	it("emits a JSON error envelope in --json mode", async () => {
+		const { stdout, exitCode } = await run(
+			["--json", "--eval-file", EVAL_FILE],
+			noKey,
+		);
+		expect(exitCode).toBe(69);
+		const parsed = JSON.parse(stdout);
+		expect(parsed.status).toBe("error");
+		expect(parsed.error.code).toBe("MISSING_API_KEY");
+		expect(parsed.error.fix).toBeDefined();
+		expect(parsed.error.transient).toBe(false);
+		expect(parsed.agentDetection).toBeDefined();
+	});
 
-  it('skips the preflight for --dry-run (exit 0 with no key)', async () => {
-    const { exitCode } = await run(
-      ['--dry-run', '--eval-file', EVAL_FILE, '--no-agent-detect'],
-      noKey
-    );
-    expect(exitCode).toBe(0);
-  });
+	it("skips the preflight for --dry-run (exit 0 with no key)", async () => {
+		const { exitCode } = await run(
+			["--dry-run", "--eval-file", EVAL_FILE, "--no-agent-detect"],
+			noKey,
+		);
+		expect(exitCode).toBe(0);
+	});
 });
 
-describe('CLI: env var overrides', () => {
-  it('CODE_AGENT_EVAL_ITERATIONS overrides config', async () => {
-    const { stdout } = await run(
-      ['--dry-run', '--json', '--eval-file', EVAL_FILE],
-      { CODE_AGENT_EVAL_ITERATIONS: '12' }
-    );
-    const parsed = JSON.parse(stdout);
-    expect(parsed.data.iterations).toBe(12);
-  });
+describe("CLI: env var overrides", () => {
+	it("CODE_AGENT_EVAL_ITERATIONS overrides config", async () => {
+		const { stdout } = await run(
+			["--dry-run", "--json", "--eval-file", EVAL_FILE],
+			{ CODE_AGENT_EVAL_ITERATIONS: "12" },
+		);
+		const parsed = JSON.parse(stdout);
+		expect(parsed.data.iterations).toBe(12);
+	});
 
 	it("flag takes precedence over env var", async () => {
 		const { stdout } = await run(
