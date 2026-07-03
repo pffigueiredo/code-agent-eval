@@ -26,4 +26,11 @@ export { SkillPickedUpScorer } from './scorers/agent';
 export { generateEnvironmentVariables, validateEnvironmentVariables } from './env-generator';
 
 // Results writer utilities
-export { writeResults, formatResultsAsMarkdown, writeResultsAsJson, formatResultsAsJUnit } from './results-writer';
+export {
+  writeResults,
+  formatResultsAsMarkdown,
+  writeResultsAsJson,
+  formatResultsAsJson,
+  formatResultsAsJUnit,
+  formatResultsAsGitHubSummary,
+} from './results-writer';

@@ -7,7 +7,10 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { formatResultsAsJUnit } from '../../src/results-writer';
+import {
+  formatResultsAsJUnit,
+  formatResultsAsJson,
+} from '../../src/results-writer';
 import type { EvalResult } from '../../src/types';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -22,7 +25,7 @@ const junitPath = path.join(outputDir, 'results.junit.xml');
 writeFileSync(junitPath, formatResultsAsJUnit(result), 'utf-8');
 
 const jsonPath = path.join(outputDir, 'results.json');
-writeFileSync(jsonPath, JSON.stringify(result, null, 2), 'utf-8');
+writeFileSync(jsonPath, formatResultsAsJson(result), 'utf-8');
 
 console.log(`Wrote ${junitPath}`);
 console.log(`Wrote ${jsonPath}`);

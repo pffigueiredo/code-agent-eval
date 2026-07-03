@@ -300,6 +300,20 @@ describe('CLI: --threshold gating', () => {
     expect(exitCode).toBe(0);
   }, 120000);
 
+  it('JSON status/verdict agree with the threshold exit code', async () => {
+    const { exitCode, stdout } = await run(
+      ['--eval-file', EVAL_FILE, '--threshold', '0', '--json'],
+      failEnv
+    );
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    // Verdict is threshold-based → passes; raw success stays false.
+    expect(parsed.status).toBe('ok');
+    expect(parsed.data.verdict).toBe('pass');
+    expect(parsed.data.threshold).toBe(0);
+    expect(parsed.data.success).toBe(false);
+  }, 120000);
+
   it('default threshold fails an all-failing run (exit 1)', async () => {
     const { exitCode } = await run(
       ['--eval-file', EVAL_FILE, '--no-agent-detect'],
@@ -359,6 +373,22 @@ describe('CLI: --output artifacts', () => {
       expect(fs.existsSync(jsonPath)).toBe(true);
       const parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
       expect(parsed.evalName).toBeDefined();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }, 120000);
+
+  it('creates missing parent directories for --output', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-out-'));
+    const nested = path.join(dir, 'a', 'b', 'out.xml');
+    try {
+      const { exitCode } = await run(
+        ['--eval-file', EVAL_FILE, '--output', nested, '--threshold', '0', '--no-agent-detect'],
+        failEnv
+      );
+      // Threshold 0 → verdict pass → exit 0 (not a FATAL write crash).
+      expect(exitCode).toBe(0);
+      expect(fs.existsSync(nested)).toBe(true);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

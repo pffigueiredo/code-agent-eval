@@ -24,6 +24,32 @@ function sanitizeForFilename(name: string): string {
 }
 
 /**
+ * Escape a value for safe inclusion in a Markdown table cell: pipes would
+ * split the cell and newlines would break the row.
+ */
+function escapeMarkdownCell(value: string): string {
+  return value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+}
+
+/**
+ * Per-prompt pass-rate breakdown, shared by the Markdown and GitHub-summary
+ * formatters so they can't drift.
+ */
+function perPromptStats(
+  result: EvalResult
+): Array<{ promptId: string; passRate: number; runs: number }> {
+  const promptIds = [...new Set(result.iterations.map((i) => i.promptId))];
+  return promptIds.map((promptId) => {
+    const runs = result.iterations.filter((i) => i.promptId === promptId);
+    return {
+      promptId,
+      runs: runs.length,
+      passRate: runs.filter((r) => r.success).length / runs.length,
+    };
+  });
+}
+
+/**
  * Format a single iteration's output as a log file
  */
 function formatIterationLog(iteration: IterationResult): string {
@@ -143,14 +169,12 @@ export function formatResultsAsMarkdown(result: EvalResult): string {
   lines.push('');
 
   // Per-prompt summary
-  const promptIds = [...new Set(result.iterations.map(i => i.promptId))];
-  if (promptIds.length > 1) {
+  const promptStats = perPromptStats(result);
+  if (promptStats.length > 1) {
     lines.push('## Prompts Tested');
     lines.push('');
-    for (const promptId of promptIds) {
-      const promptResults = result.iterations.filter(i => i.promptId === promptId);
-      const passRate = promptResults.filter(r => r.success).length / promptResults.length;
-      lines.push(`- **${promptId}**: ${(passRate * 100).toFixed(1)}% pass rate (${promptResults.length} runs)`);
+    for (const { promptId, passRate, runs } of promptStats) {
+      lines.push(`- **${promptId}**: ${(passRate * 100).toFixed(1)}% pass rate (${runs} runs)`);
     }
     lines.push('');
   }
@@ -371,19 +395,13 @@ export function formatResultsAsGitHubSummary(result: EvalResult): string {
   lines.push('');
 
   // Per-prompt breakdown
-  const promptIds = [...new Set(result.iterations.map((i) => i.promptId))];
   lines.push('### Prompts');
   lines.push('');
   lines.push('| Prompt | Pass Rate | Runs |');
   lines.push('|--------|-----------|------|');
-  for (const promptId of promptIds) {
-    const promptResults = result.iterations.filter(
-      (i) => i.promptId === promptId
-    );
-    const passRate =
-      promptResults.filter((r) => r.success).length / promptResults.length;
+  for (const { promptId, passRate, runs } of perPromptStats(result)) {
     lines.push(
-      `| ${promptId} | ${(passRate * 100).toFixed(1)}% | ${promptResults.length} |`
+      `| ${escapeMarkdownCell(promptId)} | ${(passRate * 100).toFixed(1)}% | ${runs} |`
     );
   }
   lines.push('');
@@ -399,12 +417,23 @@ export function formatResultsAsGitHubSummary(result: EvalResult): string {
     lines.push('|--------|-----------|');
     for (const name of scorerNames) {
       const agg = result.aggregateScores[name];
-      lines.push(`| ${name} | ${(agg.passRate * 100).toFixed(1)}% |`);
+      lines.push(
+        `| ${escapeMarkdownCell(name)} | ${(agg.passRate * 100).toFixed(1)}% |`
+      );
     }
     lines.push('');
   }
 
   return lines.join('\n') + '\n';
+}
+
+/**
+ * Format evaluation results as a pretty-printed JSON string. Single source of
+ * truth for the on-disk JSON shape (reused by the CLI `--output *.json` path,
+ * the CI fixture emitter, and `writeResultsAsJson`).
+ */
+export function formatResultsAsJson(result: EvalResult): string {
+  return JSON.stringify(result, null, 2);
 }
 
 /**
@@ -416,8 +445,7 @@ export async function writeResultsAsJson(
   result: EvalResult,
   filePath: string
 ): Promise<void> {
-  const json = JSON.stringify(result, null, 2);
-  await fs.writeFile(filePath, json, 'utf-8');
+  await fs.writeFile(filePath, formatResultsAsJson(result), 'utf-8');
 }
 
 /**

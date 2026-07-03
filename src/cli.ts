@@ -1,17 +1,22 @@
 #!/usr/bin/env node
 import { parseArgs, format } from 'node:util';
 import { createRequire } from 'node:module';
-import { readFileSync, appendFileSync } from 'node:fs';
+import {
+  readFileSync,
+  appendFileSync,
+  writeFileSync,
+  mkdirSync,
+} from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { detectAgenticEnvironment } from 'am-i-vibing';
-import { writeFileSync } from 'node:fs';
 import { runClaudeCodeEval } from './runner';
 import type { EvalConfig } from './runner';
 import { loadEvalFile } from './eval-config-loader';
 import type { EvalResult } from './types';
 import {
   formatResultsAsJUnit,
+  formatResultsAsJson,
   formatResultsAsMarkdown,
   formatResultsAsGitHubSummary,
 } from './results-writer';
@@ -38,7 +43,7 @@ function formatterForPath(
 ): ((result: EvalResult) => string) | null {
   const lower = outputPath.toLowerCase();
   if (lower.endsWith('.xml')) return formatResultsAsJUnit;
-  if (lower.endsWith('.json')) return (r) => JSON.stringify(r, null, 2);
+  if (lower.endsWith('.json')) return formatResultsAsJson;
   if (lower.endsWith('.md')) return formatResultsAsMarkdown;
   return null;
 }
@@ -65,8 +70,6 @@ Options:
   --output <path>        Write an artifact; format inferred from extension
                          (.xml/.junit.xml → JUnit, .json → JSON, .md → Markdown).
                          Repeatable.
-  --github-summary       Append a Markdown summary to \$GITHUB_STEP_SUMMARY
-                         (auto-enabled when that env var is set)
   --json                 Output results as JSON to stdout
   --dry-run              Validate config and show execution plan
   --show-skill           Print agent skill guide (eval config format, scorers, examples)
@@ -102,7 +105,6 @@ async function main() {
         verbose: { type: 'boolean', default: false },
         'results-dir': { type: 'string' },
         output: { type: 'string', multiple: true },
-        'github-summary': { type: 'boolean', default: false },
         json: { type: 'boolean', default: false },
         'dry-run': { type: 'boolean', default: false },
         'agent-detect': { type: 'boolean', default: true },
@@ -366,17 +368,28 @@ async function main() {
   // Run eval
   const result = await runClaudeCodeEval(finalConfig);
 
+  // The verdict is threshold-based, not all-or-nothing: it drives the exit
+  // code, the JSON envelope status, and the human-readable headline alike, so
+  // all three agree. `result.success` (all iterations passed) is retained in
+  // the JSON as raw detail.
+  const threshold = finalConfig.passThreshold ?? 1.0;
+  const overallPassRate =
+    result.aggregateScores._overall?.passRate ?? (result.success ? 1 : 0);
+  const verdict = overallPassRate >= threshold;
+
   // Output results
   const evalFile = values['eval-file'];
 
   if (isJson) {
     stdoutJson({
-      status: result.success ? 'ok' : 'error',
+      status: verdict ? 'ok' : 'error',
       agentDetection,
       data: {
         evalName: result.evalName,
         agentId: result.agentId,
         timestamp: result.timestamp,
+        verdict: verdict ? 'pass' : 'fail',
+        threshold,
         success: result.success,
         duration: result.duration,
         aggregateScores: result.aggregateScores,
@@ -395,18 +408,18 @@ async function main() {
       },
     });
   } else {
-    const passRate = (result.aggregateScores._overall?.passRate ?? 0) * 100;
-    const passed = result.iterations.filter((i) => i.success).length;
+    const passRate = overallPassRate * 100;
+    const passedCount = result.iterations.filter((i) => i.success).length;
     const total = result.iterations.length;
     const durSec = (result.duration / 1000).toFixed(1);
 
     stdout('');
     stdout(
-      `Eval "${result.evalName}" ${result.success ? 'completed' : 'failed'}: ${passed}/${total} passed (${passRate.toFixed(1)}%) in ${durSec}s`
+      `Eval "${result.evalName}" ${verdict ? 'passed' : 'failed'}: ${passedCount}/${total} passed (${passRate.toFixed(1)}%, threshold ${(threshold * 100).toFixed(0)}%) in ${durSec}s`
     );
     stdout('');
     stdout('Next steps:');
-    if (result.success) {
+    if (verdict) {
       if (finalConfig.resultsDir) {
         stdout(
           `  View results:    cat ${finalConfig.resultsDir}/*/results.md`
@@ -435,23 +448,20 @@ async function main() {
   // Write --output artifacts (extension-inferred). Validated above.
   for (const outputPath of outputPaths) {
     const formatter = formatterForPath(outputPath)!;
+    mkdirSync(path.dirname(path.resolve(outputPath)), { recursive: true });
     writeFileSync(outputPath, formatter(result), 'utf-8');
     if (!isJson) stdout(`  Wrote artifact:  ${outputPath}`);
   }
 
-  // Append a GitHub Step Summary when $GITHUB_STEP_SUMMARY is set — the env var
-  // is itself the opt-in signal, and --github-summary can't write without it
-  // (it needs that path as the target file).
+  // Append a GitHub Step Summary when $GITHUB_STEP_SUMMARY is set — that env
+  // var is both the opt-in signal and the target file.
   const summaryPath = process.env.GITHUB_STEP_SUMMARY;
   if (summaryPath) {
     appendFileSync(summaryPath, formatResultsAsGitHubSummary(result), 'utf-8');
     if (!isJson) stdout(`  Wrote summary:   ${summaryPath}`);
   }
 
-  const overall =
-    result.aggregateScores._overall?.passRate ?? (result.success ? 1 : 0);
-  const passed = overall >= (finalConfig.passThreshold ?? 1.0);
-  process.exit(passed ? EXIT.SUCCESS : EXIT.EVAL_FAILURE);
+  process.exit(verdict ? EXIT.SUCCESS : EXIT.EVAL_FAILURE);
 }
 
 main().catch((err) => {

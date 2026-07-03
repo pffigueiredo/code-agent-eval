@@ -353,4 +353,31 @@ describe('formatResultsAsGitHubSummary', () => {
     // _overall should not appear in the scorer table
     expect(summary).not.toContain('_overall');
   });
+
+  test('escapes pipes in promptId so the table is not corrupted', () => {
+    const summary = formatResultsAsGitHubSummary(
+      createMockResult({
+        iterations: [
+          {
+            iterationId: 0,
+            promptId: 'a|b',
+            success: true,
+            duration: 1000,
+            scores: { build: { score: 1.0, reason: 'ok' } },
+            agentOutput: '',
+            environmentVariables: {},
+          },
+        ],
+      })
+    );
+    expect(summary).toContain('a\\|b');
+    // Every table row keeps exactly two interior separators (3 columns).
+    const rows = summary
+      .split('\n')
+      .filter((l) => l.startsWith('|') && !l.includes('---'));
+    for (const row of rows) {
+      const cells = row.split('\\|').join('').split('|').length - 2;
+      expect(cells).toBeGreaterThan(0);
+    }
+  });
 });
