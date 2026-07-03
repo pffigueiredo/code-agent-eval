@@ -317,6 +317,75 @@ describe('CLI: --threshold gating', () => {
   }, 120000);
 });
 
+describe('CLI: --output artifacts', () => {
+  // Dummy key lets the run execute; every iteration fails deterministically,
+  // but the result is still produced and artifacts are written.
+  const failEnv = { ANTHROPIC_API_KEY: 'sk-dummy', CLAUDECODE: '' };
+
+  it('exits 2 on unknown --output extension (before the run)', async () => {
+    const { exitCode, stderr } = await run(
+      ['--eval-file', EVAL_FILE, '--output', './out.txt', '--no-agent-detect'],
+      failEnv
+    );
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain('--output');
+  });
+
+  it('writes JUnit XML for a .xml --output', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-out-'));
+    const xmlPath = path.join(dir, 'out.xml');
+    try {
+      await run(
+        ['--eval-file', EVAL_FILE, '--output', xmlPath, '--no-agent-detect'],
+        failEnv
+      );
+      expect(fs.existsSync(xmlPath)).toBe(true);
+      const content = fs.readFileSync(xmlPath, 'utf-8');
+      expect(content).toContain('<?xml version="1.0"');
+      expect(content).toContain('<testsuites');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }, 120000);
+
+  it('writes JSON for a .json --output', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-out-'));
+    const jsonPath = path.join(dir, 'out.json');
+    try {
+      await run(
+        ['--eval-file', EVAL_FILE, '--output', jsonPath, '--no-agent-detect'],
+        failEnv
+      );
+      expect(fs.existsSync(jsonPath)).toBe(true);
+      const parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+      expect(parsed.evalName).toBeDefined();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }, 120000);
+
+  it('writes both when --output is repeated', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cae-out-'));
+    const xmlPath = path.join(dir, 'out.xml');
+    const jsonPath = path.join(dir, 'out.json');
+    try {
+      await run(
+        [
+          '--eval-file', EVAL_FILE,
+          '--output', xmlPath,
+          '--output', jsonPath,
+          '--no-agent-detect',
+        ],
+        failEnv
+      );
+      expect(fs.existsSync(xmlPath)).toBe(true);
+      expect(fs.existsSync(jsonPath)).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }, 120000);
+});
+
 describe('CLI: ANTHROPIC_API_KEY preflight', () => {
   const noKey = { ANTHROPIC_API_KEY: undefined, CLAUDECODE: '' };
 

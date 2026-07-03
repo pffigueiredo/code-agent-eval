@@ -5,9 +5,15 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { detectAgenticEnvironment } from 'am-i-vibing';
+import { writeFileSync } from 'node:fs';
 import { runClaudeCodeEval } from './runner';
 import type { EvalConfig } from './runner';
 import { loadEvalFile } from './eval-config-loader';
+import type { EvalResult } from './types';
+import {
+  formatResultsAsJUnit,
+  formatResultsAsMarkdown,
+} from './results-writer';
 import { resolveOutputMode } from './agent-detect';
 import type { AgentDetectionResult } from './agent-detect';
 
@@ -24,6 +30,17 @@ const EXIT = {
   UNAVAILABLE: 69,
   CONFIG: 78,
 } as const;
+
+// Pick an artifact formatter from a file's extension. Returns null for unknown.
+function formatterForPath(
+  outputPath: string
+): ((result: EvalResult) => string) | null {
+  const lower = outputPath.toLowerCase();
+  if (lower.endsWith('.xml')) return formatResultsAsJUnit;
+  if (lower.endsWith('.json')) return (r) => JSON.stringify(r, null, 2);
+  if (lower.endsWith('.md')) return formatResultsAsMarkdown;
+  return null;
+}
 
 // stdout helpers — never affected by console.log override
 function stdout(text: string): void {
@@ -44,6 +61,9 @@ Options:
   --threshold <0..1>     Pass when overall pass rate >= this (default 1.0)
   --verbose              Enable verbose logging
   --results-dir <path>   Override results directory
+  --output <path>        Write an artifact; format inferred from extension
+                         (.xml/.junit.xml → JUnit, .json → JSON, .md → Markdown).
+                         Repeatable.
   --json                 Output results as JSON to stdout
   --dry-run              Validate config and show execution plan
   --show-skill           Print agent skill guide (eval config format, scorers, examples)
@@ -78,6 +98,7 @@ async function main() {
         threshold: { type: 'string' },
         verbose: { type: 'boolean', default: false },
         'results-dir': { type: 'string' },
+        output: { type: 'string', multiple: true },
         json: { type: 'boolean', default: false },
         'dry-run': { type: 'boolean', default: false },
         'agent-detect': { type: 'boolean', default: true },
@@ -238,6 +259,29 @@ async function main() {
     overrides.passThreshold = t;
   }
 
+  // Validate --output paths up front (before the run burns time).
+  const outputPaths = (values.output as string[] | undefined) ?? [];
+  for (const outputPath of outputPaths) {
+    if (!formatterForPath(outputPath)) {
+      if (isJson) {
+        stdoutJson({
+          status: 'error',
+          agentDetection,
+          error: {
+            code: 'INVALID_ARG',
+            message: `--output: unsupported extension for "${outputPath}" (use .xml, .json, or .md)`,
+            transient: false,
+          },
+        });
+      } else {
+        console.error(
+          `Error: --output: unsupported extension for "${outputPath}" (use .xml, .json, or .md)`
+        );
+      }
+      process.exit(EXIT.USAGE);
+    }
+  }
+
   if (
     values.verbose ||
     ['1', 'true'].includes(process.env.CODE_AGENT_EVAL_VERBOSE ?? '')
@@ -382,6 +426,13 @@ async function main() {
         stdout(`  Inspect temp:    cd ${preserved[0].workingDir}`);
       }
     }
+  }
+
+  // Write --output artifacts (extension-inferred). Validated above.
+  for (const outputPath of outputPaths) {
+    const formatter = formatterForPath(outputPath)!;
+    writeFileSync(outputPath, formatter(result), 'utf-8');
+    if (!isJson) stdout(`  Wrote artifact:  ${outputPath}`);
   }
 
   const overall =

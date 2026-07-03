@@ -254,6 +254,92 @@ export function formatResultsAsMarkdown(result: EvalResult): string {
 }
 
 /**
+ * Escape a string for safe inclusion in XML text or attribute values.
+ */
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+/**
+ * Format evaluation results as JUnit XML.
+ *
+ * One `<testsuite>` per promptId, one `<testcase>` per iteration. A failed
+ * iteration gets a `<failure>` carrying the failing-scorer names + reasons
+ * (or the iteration error). The synthetic `_overall` aggregate is excluded.
+ */
+export function formatResultsAsJUnit(result: EvalResult): string {
+  const promptIds = [...new Set(result.iterations.map((i) => i.promptId))];
+
+  const totalTests = result.iterations.length;
+  const totalFailures = result.iterations.filter((i) => !i.success).length;
+  const totalTime = (result.duration / 1000).toFixed(3);
+
+  const lines: string[] = [];
+  lines.push('<?xml version="1.0" encoding="UTF-8"?>');
+  lines.push(
+    `<testsuites name="${escapeXml(result.evalName)}" tests="${totalTests}" failures="${totalFailures}" time="${totalTime}">`
+  );
+
+  for (const promptId of promptIds) {
+    const iterations = result.iterations.filter((i) => i.promptId === promptId);
+    const failures = iterations.filter((i) => !i.success).length;
+    const suiteTime = (
+      iterations.reduce((sum, i) => sum + i.duration, 0) / 1000
+    ).toFixed(3);
+
+    lines.push(
+      `  <testsuite name="${escapeXml(promptId)}" tests="${iterations.length}" failures="${failures}" time="${suiteTime}">`
+    );
+
+    for (const iter of iterations) {
+      const caseName = `iteration ${iter.iterationId}`;
+      const caseTime = (iter.duration / 1000).toFixed(3);
+      const classname = `${result.evalName}.${promptId}`;
+
+      if (iter.success) {
+        lines.push(
+          `    <testcase name="${escapeXml(caseName)}" classname="${escapeXml(classname)}" time="${caseTime}" />`
+        );
+      } else {
+        const failingScorers = Object.entries(iter.scores).filter(
+          ([, s]) => s.score < 1
+        );
+        const message =
+          failingScorers.length > 0
+            ? failingScorers.map(([name]) => name).join(', ')
+            : (iter.error ?? 'iteration failed');
+        const bodyParts: string[] = [];
+        for (const [name, score] of failingScorers) {
+          bodyParts.push(`${name}: ${score.reason}`);
+        }
+        if (iter.error) {
+          bodyParts.push(`error: ${iter.error}`);
+        }
+        const body = bodyParts.join('\n');
+
+        lines.push(
+          `    <testcase name="${escapeXml(caseName)}" classname="${escapeXml(classname)}" time="${caseTime}">`
+        );
+        lines.push(
+          `      <failure message="${escapeXml(message)}">${escapeXml(body)}</failure>`
+        );
+        lines.push('    </testcase>');
+      }
+    }
+
+    lines.push('  </testsuite>');
+  }
+
+  lines.push('</testsuites>');
+  return lines.join('\n') + '\n';
+}
+
+/**
  * Write evaluation results as JSON file
  * @param result - The evaluation result to write
  * @param filePath - Path where JSON should be written

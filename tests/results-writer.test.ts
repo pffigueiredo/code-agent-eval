@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { writeResults, writeResultsAsJson, formatResultsAsMarkdown } from '../src/results-writer';
+import { writeResults, writeResultsAsJson, formatResultsAsMarkdown, formatResultsAsJUnit } from '../src/results-writer';
 import type { EvalResult } from '../src/types';
 import fs from 'fs-extra';
 import os from 'os';
@@ -191,5 +191,102 @@ describe('Results Writer', () => {
     expect(log1Content).toContain('Test error');
 
     await fs.remove(tempDir);
+  });
+});
+
+describe('formatResultsAsJUnit', () => {
+  test('produces well-formed XML with a testsuites root', () => {
+    const xml = formatResultsAsJUnit(createMockResult());
+    expect(xml).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+    expect(xml).toContain('<testsuites');
+    expect(xml).toContain('</testsuites>');
+    expect(xml).toContain('<testcase');
+  });
+
+  test('emits one testsuite per prompt', () => {
+    const result = createMockResult({
+      iterations: [
+        {
+          iterationId: 0,
+          promptId: 'v1',
+          success: true,
+          duration: 1000,
+          scores: { build: { score: 1.0, reason: 'ok' } },
+          agentOutput: '',
+          environmentVariables: {},
+        },
+        {
+          iterationId: 0,
+          promptId: 'v2',
+          success: true,
+          duration: 1000,
+          scores: { build: { score: 1.0, reason: 'ok' } },
+          agentOutput: '',
+          environmentVariables: {},
+        },
+      ],
+    });
+    const xml = formatResultsAsJUnit(result);
+    expect(xml).toContain('<testsuite name="v1"');
+    expect(xml).toContain('<testsuite name="v2"');
+    const suiteCount = (xml.match(/<testsuite /g) ?? []).length;
+    expect(suiteCount).toBe(2);
+  });
+
+  test('failed iteration carries a <failure> with scorer reasons', () => {
+    const result = createMockResult({
+      success: false,
+      iterations: [
+        {
+          iterationId: 0,
+          promptId: 'v1',
+          success: false,
+          duration: 1000,
+          scores: {
+            build: { score: 0, reason: 'compile error' },
+            test: { score: 1.0, reason: 'tests passed' },
+          },
+          agentOutput: '',
+          environmentVariables: {},
+        },
+      ],
+    });
+    const xml = formatResultsAsJUnit(result);
+    expect(xml).toContain('<failure');
+    expect(xml).toContain('build');
+    expect(xml).toContain('compile error');
+    // passing scorer should not appear as a failing reason line
+    expect(xml).not.toContain('tests passed');
+  });
+
+  test('excludes the synthetic _overall aggregate', () => {
+    const xml = formatResultsAsJUnit(createMockResult());
+    expect(xml).not.toContain('_overall');
+  });
+
+  test('escapes XML special characters', () => {
+    const result = createMockResult({
+      success: false,
+      iterations: [
+        {
+          iterationId: 0,
+          promptId: 'v1',
+          success: false,
+          duration: 1000,
+          scores: {
+            build: { score: 0, reason: 'expected <a> & "b" got \'c\'' },
+          },
+          agentOutput: '',
+          environmentVariables: {},
+        },
+      ],
+    });
+    const xml = formatResultsAsJUnit(result);
+    expect(xml).toContain('&lt;a&gt;');
+    expect(xml).toContain('&amp;');
+    expect(xml).toContain('&quot;');
+    expect(xml).toContain('&apos;');
+    // raw unescaped forms should not leak into the failure body
+    expect(xml).not.toContain('<a>');
   });
 });
