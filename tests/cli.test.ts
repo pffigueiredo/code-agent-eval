@@ -9,9 +9,10 @@ const CLI = path.resolve('dist/cli.mjs');
 const EVAL_FILE = path.resolve('examples/cli-test.ts');
 
 // Helper: run CLI and return stdout, stderr, exitCode (never throws on non-zero)
+// A key with value `undefined` in `env` unsets it for the child process.
 async function run(
   args: string[],
-  env?: Record<string, string>
+  env?: Record<string, string | undefined>
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   try {
     const result = await execa('node', [CLI, ...args], {
@@ -314,6 +315,42 @@ describe('CLI: --threshold gating', () => {
     );
     expect(exitCode).toBe(0);
   }, 120000);
+});
+
+describe('CLI: ANTHROPIC_API_KEY preflight', () => {
+  const noKey = { ANTHROPIC_API_KEY: undefined, CLAUDECODE: '' };
+
+  it('exits 69 with an actionable message when the key is unset', async () => {
+    const { exitCode, stderr } = await run(
+      ['--eval-file', EVAL_FILE, '--no-agent-detect'],
+      noKey
+    );
+    expect(exitCode).toBe(69);
+    expect(stderr).toContain('ANTHROPIC_API_KEY');
+    expect(stderr).toContain('Fix:');
+  });
+
+  it('emits a JSON error envelope in --json mode', async () => {
+    const { stdout, exitCode } = await run(
+      ['--json', '--eval-file', EVAL_FILE],
+      noKey
+    );
+    expect(exitCode).toBe(69);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.status).toBe('error');
+    expect(parsed.error.code).toBe('MISSING_API_KEY');
+    expect(parsed.error.fix).toBeDefined();
+    expect(parsed.error.transient).toBe(false);
+    expect(parsed.agentDetection).toBeDefined();
+  });
+
+  it('skips the preflight for --dry-run (exit 0 with no key)', async () => {
+    const { exitCode } = await run(
+      ['--dry-run', '--eval-file', EVAL_FILE, '--no-agent-detect'],
+      noKey
+    );
+    expect(exitCode).toBe(0);
+  });
 });
 
 describe('CLI: env var overrides', () => {

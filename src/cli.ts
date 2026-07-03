@@ -21,6 +21,7 @@ const EXIT = {
   SUCCESS: 0,
   EVAL_FAILURE: 1,
   USAGE: 2,
+  UNAVAILABLE: 69,
   CONFIG: 78,
 } as const;
 
@@ -288,6 +289,30 @@ async function main() {
       stdout(`  Project:    ${plan.projectDir}`);
     }
     process.exit(EXIT.SUCCESS);
+  }
+
+  // Preflight: fail fast on a missing API key, before any iteration burns time.
+  // Skipped for --dry-run/--help/--version/--show-skill (those exit earlier).
+  if (!process.env.ANTHROPIC_API_KEY) {
+    if (isJson) {
+      stdoutJson({
+        status: 'error',
+        agentDetection,
+        error: {
+          code: 'MISSING_API_KEY',
+          message: 'ANTHROPIC_API_KEY is not set',
+          fix: 'Set ANTHROPIC_API_KEY in your environment before running an eval.',
+          transient: false,
+        },
+      });
+    } else {
+      console.error('Error: ANTHROPIC_API_KEY is not set');
+      console.error(
+        'Fix: Set ANTHROPIC_API_KEY in your environment before running an eval.'
+      );
+      console.error('     export ANTHROPIC_API_KEY=sk-...');
+    }
+    process.exit(EXIT.UNAVAILABLE);
   }
 
   // Run eval
