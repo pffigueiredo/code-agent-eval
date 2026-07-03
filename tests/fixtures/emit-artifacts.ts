@@ -1,7 +1,5 @@
-// Drive the Phase 3 artifact formatters over a committed fixture, writing real
-// JUnit XML + JSON into an output dir. Used by self-CI to exercise the artifact
-// code end-to-end without an API key.
-//
+// Emit JUnit + JSON from a committed fixture so self-CI exercises the artifact
+// formatters without an API key.
 // Usage: tsx tests/fixtures/emit-artifacts.ts [outputDir]  (default: ./ci-artifacts)
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';

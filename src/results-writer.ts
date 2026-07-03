@@ -429,8 +429,7 @@ export function formatResultsAsGitHubSummary(result: EvalResult): string {
 
 /**
  * Format evaluation results as a pretty-printed JSON string. Single source of
- * truth for the on-disk JSON shape (reused by the CLI `--output *.json` path,
- * the CI fixture emitter, and `writeResultsAsJson`).
+ * truth for the on-disk JSON shape.
  */
 export function formatResultsAsJson(result: EvalResult): string {
   return JSON.stringify(result, null, 2);

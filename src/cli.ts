@@ -341,8 +341,7 @@ async function main() {
     process.exit(EXIT.SUCCESS);
   }
 
-  // Preflight: fail fast on a missing API key, before any iteration burns time.
-  // Skipped for --dry-run/--help/--version/--show-skill (those exit earlier).
+  // Fail fast on a missing API key before any iteration runs.
   if (!process.env.ANTHROPIC_API_KEY) {
     if (isJson) {
       stdoutJson({
@@ -368,10 +367,7 @@ async function main() {
   // Run eval
   const result = await runClaudeCodeEval(finalConfig);
 
-  // The verdict is threshold-based, not all-or-nothing: it drives the exit
-  // code, the JSON envelope status, and the human-readable headline alike, so
-  // all three agree. `result.success` (all iterations passed) is retained in
-  // the JSON as raw detail.
+  // Threshold-based verdict drives the exit code, JSON status, and headline.
   const threshold = finalConfig.passThreshold ?? 1.0;
   const overallPassRate =
     result.aggregateScores._overall?.passRate ?? (result.success ? 1 : 0);
@@ -445,7 +441,7 @@ async function main() {
     }
   }
 
-  // Write --output artifacts (extension-inferred). Validated above.
+  // Write --output artifacts (format inferred from extension).
   for (const outputPath of outputPaths) {
     const formatter = formatterForPath(outputPath)!;
     mkdirSync(path.dirname(path.resolve(outputPath)), { recursive: true });
@@ -453,8 +449,7 @@ async function main() {
     if (!isJson) stdout(`  Wrote artifact:  ${outputPath}`);
   }
 
-  // Append a GitHub Step Summary when $GITHUB_STEP_SUMMARY is set — that env
-  // var is both the opt-in signal and the target file.
+  // $GITHUB_STEP_SUMMARY is both the opt-in signal and the target file.
   const summaryPath = process.env.GITHUB_STEP_SUMMARY;
   if (summaryPath) {
     appendFileSync(summaryPath, formatResultsAsGitHubSummary(result), 'utf-8');

@@ -261,8 +261,7 @@ describe('CLI: --dry-run', () => {
 });
 
 describe('CLI: --threshold gating', () => {
-  // A dummy key lets the run execute; every iteration fails deterministically
-  // (SDK errors), so _overall.passRate is 0.
+  // Dummy key lets the run execute; all iterations fail → passRate 0.
   const failEnv = { ANTHROPIC_API_KEY: 'sk-dummy', CLAUDECODE: '' };
 
   it('surfaces the resolved threshold in the dry-run plan', async () => {
@@ -332,8 +331,7 @@ describe('CLI: --threshold gating', () => {
 });
 
 describe('CLI: --output artifacts', () => {
-  // Dummy key lets the run execute; every iteration fails deterministically,
-  // but the result is still produced and artifacts are written.
+  // Dummy key lets the run execute; all iterations fail but a result is produced.
   const failEnv = { ANTHROPIC_API_KEY: 'sk-dummy', CLAUDECODE: '' };
 
   it('exits 2 on unknown --output extension (before the run)', async () => {
@@ -417,8 +415,7 @@ describe('CLI: --output artifacts', () => {
 });
 
 describe('CLI: GitHub Step Summary', () => {
-  // Dummy key lets the run execute; every iteration fails deterministically,
-  // but the result is still produced and the summary is appended.
+  // Dummy key lets the run execute; all iterations fail but a result is produced.
   const failEnv = { ANTHROPIC_API_KEY: 'sk-dummy', CLAUDECODE: '' };
 
   it('appends a summary to $GITHUB_STEP_SUMMARY', async () => {

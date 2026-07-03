@@ -371,13 +371,6 @@ describe('formatResultsAsGitHubSummary', () => {
       })
     );
     expect(summary).toContain('a\\|b');
-    // Every table row keeps exactly two interior separators (3 columns).
-    const rows = summary
-      .split('\n')
-      .filter((l) => l.startsWith('|') && !l.includes('---'));
-    for (const row of rows) {
-      const cells = row.split('\\|').join('').split('|').length - 2;
-      expect(cells).toBeGreaterThan(0);
-    }
+    expect(summary).not.toContain('| a|b |');
   });
 });
