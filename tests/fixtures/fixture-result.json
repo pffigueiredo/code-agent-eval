@@ -1,0 +1,88 @@
+{
+	"evalName": "ci-fixture-eval",
+	"agentId": "claude-code",
+	"timestamp": "2025-01-15T14:30:22.000Z",
+	"success": false,
+	"duration": 9000,
+	"iterations": [
+		{
+			"iterationId": 0,
+			"promptId": "add-feature",
+			"success": true,
+			"duration": 2500,
+			"scores": {
+				"build": { "score": 1.0, "reason": "Build passed" },
+				"test": { "score": 1.0, "reason": "Tests passed" }
+			},
+			"agentOutput": "{\"message\": \"added feature <ok>\"}",
+			"environmentVariables": { "NODE_ENV": "test" }
+		},
+		{
+			"iterationId": 1,
+			"promptId": "add-feature",
+			"success": true,
+			"duration": 2200,
+			"scores": {
+				"build": { "score": 1.0, "reason": "Build passed" },
+				"test": { "score": 1.0, "reason": "Tests passed" }
+			},
+			"agentOutput": "{\"message\": \"added feature again\"}",
+			"environmentVariables": { "NODE_ENV": "test" }
+		},
+		{
+			"iterationId": 0,
+			"promptId": "fix-bug",
+			"success": false,
+			"duration": 2100,
+			"scores": {
+				"build": { "score": 1.0, "reason": "Build passed" },
+				"test": {
+					"score": 0.0,
+					"reason": "Tests failed: expected \"a\" & got 'b' <diff>"
+				}
+			},
+			"agentOutput": "{\"message\": \"attempted fix\"}",
+			"environmentVariables": { "NODE_ENV": "test" },
+			"error": "1 test failing"
+		},
+		{
+			"iterationId": 1,
+			"promptId": "fix-bug",
+			"success": true,
+			"duration": 2200,
+			"scores": {
+				"build": { "score": 1.0, "reason": "Build passed" },
+				"test": { "score": 1.0, "reason": "Tests passed" }
+			},
+			"agentOutput": "{\"message\": \"fixed bug\"}",
+			"environmentVariables": { "NODE_ENV": "test" }
+		}
+	],
+	"aggregateScores": {
+		"build": {
+			"mean": 1.0,
+			"min": 1.0,
+			"max": 1.0,
+			"stdDev": 0,
+			"passRate": 1.0
+		},
+		"test": {
+			"mean": 0.75,
+			"min": 0.0,
+			"max": 1.0,
+			"stdDev": 0.433,
+			"passRate": 0.75
+		},
+		"_overall": {
+			"mean": 0.75,
+			"min": 0.0,
+			"max": 1.0,
+			"stdDev": 0.433,
+			"passRate": 0.75
+		}
+	},
+	"tokenUsage": {
+		"inputTokens": 4000,
+		"outputTokens": 2000
+	}
+}

@@ -25,3 +25,14 @@ jobs:
       - run: pnpm run attw
       - run: pnpm test -- run
       - run: pnpm audit --prod --audit-level high
+      # Dogfood the built binary — catches CLI/exit-code/packaging regressions.
+      - run: node dist/cli.mjs --version
+      - run: node dist/cli.mjs --help
+      - run: node dist/cli.mjs --eval-file ./examples/cli-test.ts --dry-run
+      # Emit real JUnit + JSON artifacts from a committed fixture (no API key).
+      - run: pnpm dlx tsx tests/fixtures/emit-artifacts.ts ./ci-artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: ci-artifacts/
+          if-no-files-found: error

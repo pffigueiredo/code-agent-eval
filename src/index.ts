@@ -7,6 +7,9 @@ export {
 } from "./env-generator";
 // Results writer utilities
 export {
+	formatResultsAsGitHubSummary,
+	formatResultsAsJson,
+	formatResultsAsJUnit,
 	formatResultsAsMarkdown,
 	writeResults,
 	writeResultsAsJson,

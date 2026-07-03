@@ -19,6 +19,7 @@ const baseConfigShape = {
 	verbose: z.boolean().optional(),
 	tempDirCleanup: z.enum(["always", "on-failure", "never"]).optional(),
 	resultsDir: z.string().optional(),
+	passThreshold: z.number().min(0).max(1).optional(),
 	installDependencies: z.boolean().optional(),
 	agentId: z.string().optional(),
 	claudeCodeOptions: z.record(z.string(), z.unknown()).optional(),

@@ -219,6 +219,9 @@ Options:
   --show-skill           Print this guide and exit
   --json                 Output results as JSON to stdout (logs go to stderr)
   --iterations <n>       Override config iterations
+  --threshold <0..1>     Pass when overall pass rate >= this (default 1.0)
+  --output <path>        Write an artifact; repeatable; format from extension
+                         (.xml → JUnit, .json → JSON, .md → Markdown)
   --verbose              Force verbose logging
   --results-dir <path>   Override results directory
   --no-agent-detect      Disable auto-JSON when running inside a coding agent
@@ -227,12 +230,15 @@ Options:
 
 Environment variable overrides (flags take precedence):
   CODE_AGENT_EVAL_ITERATIONS      Override iteration count
+  CODE_AGENT_EVAL_THRESHOLD       Override pass-rate threshold (0..1)
   CODE_AGENT_EVAL_VERBOSE         Set to "1" or "true" for verbose
   CODE_AGENT_EVAL_RESULTS_DIR     Override results directory
   CODE_AGENT_EVAL_AGENT_DETECT    Set to "0" to disable agent detection
 ```
 
 **Precedence:** CLI flags > environment variables > config file values.
+
+**CI:** exit codes are `0` pass / `1` fail (pass rate vs `--threshold`) / `2` usage / `69` missing `ANTHROPIC_API_KEY` / `78` config error. `--output results.junit.xml` writes JUnit for test dashboards; when `$GITHUB_STEP_SUMMARY` is set the CLI appends a Markdown summary automatically. See `examples/github-actions.yml`.
 
 ## `projectDir` and where files live
 

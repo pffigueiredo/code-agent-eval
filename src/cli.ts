@@ -1,5 +1,10 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
+import {
+	appendFileSync,
+	mkdirSync,
+	readFileSync,
+	writeFileSync,
+} from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,10 +14,17 @@ import { z } from "zod";
 import type { AgentDetectionResult } from "./agent-detect";
 import { resolveOutputMode } from "./agent-detect";
 import { collectScriptScorers, loadEvalFile } from "./eval-config-loader";
+import {
+	formatResultsAsGitHubSummary,
+	formatResultsAsJson,
+	formatResultsAsJUnit,
+	formatResultsAsMarkdown,
+} from "./results-writer";
 import type { EvalConfig } from "./runner";
 import { runClaudeCodeEval } from "./runner";
 import { validateScriptScorer } from "./scorers/registry";
 import { jsonConfigSchema } from "./scorers/schema";
+import type { EvalResult } from "./types";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,8 +36,20 @@ const EXIT = {
 	SUCCESS: 0,
 	EVAL_FAILURE: 1,
 	USAGE: 2,
+	UNAVAILABLE: 69,
 	CONFIG: 78,
 } as const;
+
+// Pick an artifact formatter from a file's extension. Returns null for unknown.
+function formatterForPath(
+	outputPath: string,
+): ((result: EvalResult) => string) | null {
+	const lower = outputPath.toLowerCase();
+	if (lower.endsWith(".xml")) return formatResultsAsJUnit;
+	if (lower.endsWith(".json")) return formatResultsAsJson;
+	if (lower.endsWith(".md")) return formatResultsAsMarkdown;
+	return null;
+}
 
 // stdout helpers — never affected by console.log override
 function stdout(text: string): void {
@@ -43,8 +67,12 @@ Usage: code-agent-eval --eval-file <path> [options]
 Options:
   --eval-file <path>     Path to eval config file (.json / .jsonl / .ts / .js)
   --iterations <n>       Override iteration count
+  --threshold <0..1>     Pass when overall pass rate >= this (default 1.0)
   --verbose              Enable verbose logging
   --results-dir <path>   Override results directory
+  --output <path>        Write an artifact; format inferred from extension
+                         (.xml/.junit.xml → JUnit, .json → JSON, .md → Markdown).
+                         Repeatable.
   --json                 Output results as JSON to stdout
   --dry-run              Validate config and show execution plan
   --print-schema         Print JSON Schema for eval config and exit
@@ -55,6 +83,7 @@ Options:
 
 Environment variables:
   CODE_AGENT_EVAL_ITERATIONS     Override iteration count
+  CODE_AGENT_EVAL_THRESHOLD      Override pass-rate threshold (0..1)
   CODE_AGENT_EVAL_VERBOSE        Set to "1" or "true" for verbose
   CODE_AGENT_EVAL_RESULTS_DIR    Override results directory
   CODE_AGENT_EVAL_AGENT_DETECT   Set to "0" to disable agent detection
@@ -75,14 +104,16 @@ The .ts/.js path remains for custom (function) scorers.
 // --- Main ---
 
 async function main() {
-	let values: Record<string, string | boolean | undefined>;
+	let values: Record<string, string | string[] | boolean | undefined>;
 	try {
 		({ values } = parseArgs({
 			options: {
 				"eval-file": { type: "string" },
 				iterations: { type: "string" },
+				threshold: { type: "string" },
 				verbose: { type: "boolean", default: false },
 				"results-dir": { type: "string" },
+				output: { type: "string", multiple: true },
 				json: { type: "boolean", default: false },
 				"dry-run": { type: "boolean", default: false },
 				"agent-detect": { type: "boolean", default: true },
@@ -230,6 +261,53 @@ async function main() {
 		if (!Number.isNaN(n) && n >= 1) overrides.iterations = n;
 	}
 
+	const thresholdFlag = values.threshold as string | undefined;
+	const thresholdEnv = process.env.CODE_AGENT_EVAL_THRESHOLD;
+	const thresholdRaw = thresholdFlag ?? thresholdEnv;
+	if (thresholdRaw !== undefined) {
+		const t = Number(thresholdRaw);
+		if (Number.isNaN(t) || t < 0 || t > 1) {
+			if (isJson) {
+				stdoutJson({
+					status: "error",
+					agentDetection,
+					error: {
+						code: "INVALID_ARG",
+						message: "--threshold must be a number between 0 and 1",
+						transient: false,
+					},
+				});
+			} else {
+				console.error("Error: --threshold must be a number between 0 and 1");
+			}
+			process.exit(EXIT.USAGE);
+		}
+		overrides.passThreshold = t;
+	}
+
+	// Validate --output paths up front (before the run burns time).
+	const outputPaths = (values.output as string[] | undefined) ?? [];
+	for (const outputPath of outputPaths) {
+		if (!formatterForPath(outputPath)) {
+			if (isJson) {
+				stdoutJson({
+					status: "error",
+					agentDetection,
+					error: {
+						code: "INVALID_ARG",
+						message: `--output: unsupported extension for "${outputPath}" (use .xml, .json, or .md)`,
+						transient: false,
+					},
+				});
+			} else {
+				console.error(
+					`Error: --output: unsupported extension for "${outputPath}" (use .xml, .json, or .md)`,
+				);
+			}
+			process.exit(EXIT.USAGE);
+		}
+	}
+
 	if (
 		values.verbose ||
 		["1", "true"].includes(process.env.CODE_AGENT_EVAL_VERBOSE ?? "")
@@ -283,6 +361,7 @@ async function main() {
 			iterations,
 			totalRuns,
 			execution: execMode,
+			threshold: finalConfig.passThreshold ?? 1.0,
 			scorers: (finalConfig.scorers ?? []).map((s) => s.name),
 			resultsDir: finalConfig.resultsDir ?? null,
 			projectDir: path.resolve(finalConfig.projectDir),
@@ -300,6 +379,7 @@ async function main() {
 			stdout(`  Iterations: ${iterations}`);
 			stdout(`  Total runs: ${totalRuns}`);
 			stdout(`  Execution:  ${execMode}`);
+			stdout(`  Threshold:  ${plan.threshold}`);
 			stdout(
 				`  Scorers:    ${plan.scorers.length ? plan.scorers.join(", ") : "(none)"}`,
 			);
@@ -309,20 +389,51 @@ async function main() {
 		process.exit(EXIT.SUCCESS);
 	}
 
+	// Fail fast on a missing API key before any iteration runs.
+	if (!process.env.ANTHROPIC_API_KEY) {
+		if (isJson) {
+			stdoutJson({
+				status: "error",
+				agentDetection,
+				error: {
+					code: "MISSING_API_KEY",
+					message: "ANTHROPIC_API_KEY is not set",
+					fix: "Set ANTHROPIC_API_KEY in your environment before running an eval.",
+					transient: false,
+				},
+			});
+		} else {
+			console.error("Error: ANTHROPIC_API_KEY is not set");
+			console.error(
+				"Fix: Set ANTHROPIC_API_KEY in your environment before running an eval.",
+			);
+			console.error("     export ANTHROPIC_API_KEY=sk-...");
+		}
+		process.exit(EXIT.UNAVAILABLE);
+	}
+
 	// Run eval
 	const result = await runClaudeCodeEval(finalConfig);
+
+	// Threshold-based verdict drives the exit code, JSON status, and headline.
+	const threshold = finalConfig.passThreshold ?? 1.0;
+	const overallPassRate =
+		result.aggregateScores._overall?.passRate ?? (result.success ? 1 : 0);
+	const verdict = overallPassRate >= threshold;
 
 	// Output results
 	const evalFile = values["eval-file"];
 
 	if (isJson) {
 		stdoutJson({
-			status: result.success ? "ok" : "error",
+			status: verdict ? "ok" : "error",
 			agentDetection,
 			data: {
 				evalName: result.evalName,
 				agentId: result.agentId,
 				timestamp: result.timestamp,
+				verdict: verdict ? "pass" : "fail",
+				threshold,
 				success: result.success,
 				duration: result.duration,
 				aggregateScores: result.aggregateScores,
@@ -341,18 +452,18 @@ async function main() {
 			},
 		});
 	} else {
-		const passRate = (result.aggregateScores._overall?.passRate ?? 0) * 100;
-		const passed = result.iterations.filter((i) => i.success).length;
+		const passRate = overallPassRate * 100;
+		const passedCount = result.iterations.filter((i) => i.success).length;
 		const total = result.iterations.length;
 		const durSec = (result.duration / 1000).toFixed(1);
 
 		stdout("");
 		stdout(
-			`Eval "${result.evalName}" ${result.success ? "completed" : "failed"}: ${passed}/${total} passed (${passRate.toFixed(1)}%) in ${durSec}s`,
+			`Eval "${result.evalName}" ${verdict ? "passed" : "failed"}: ${passedCount}/${total} passed (${passRate.toFixed(1)}%, threshold ${(threshold * 100).toFixed(0)}%) in ${durSec}s`,
 		);
 		stdout("");
 		stdout("Next steps:");
-		if (result.success) {
+		if (verdict) {
 			if (finalConfig.resultsDir) {
 				stdout(`  View results:    cat ${finalConfig.resultsDir}/*/results.md`);
 			}
@@ -376,7 +487,23 @@ async function main() {
 		}
 	}
 
-	process.exit(result.success ? EXIT.SUCCESS : EXIT.EVAL_FAILURE);
+	// Write --output artifacts (format inferred from extension).
+	for (const outputPath of outputPaths) {
+		const formatter = formatterForPath(outputPath);
+		if (!formatter) continue; // already validated above
+		mkdirSync(path.dirname(path.resolve(outputPath)), { recursive: true });
+		writeFileSync(outputPath, formatter(result), "utf-8");
+		if (!isJson) stdout(`  Wrote artifact:  ${outputPath}`);
+	}
+
+	// $GITHUB_STEP_SUMMARY is both the opt-in signal and the target file.
+	const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+	if (summaryPath) {
+		appendFileSync(summaryPath, formatResultsAsGitHubSummary(result), "utf-8");
+		if (!isJson) stdout(`  Wrote summary:   ${summaryPath}`);
+	}
+
+	process.exit(verdict ? EXIT.SUCCESS : EXIT.EVAL_FAILURE);
 }
 
 main().catch((err) => {

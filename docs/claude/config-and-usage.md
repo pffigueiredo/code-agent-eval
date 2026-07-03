@@ -16,6 +16,7 @@ Related: docs/claude/scorers.md (scorer patterns), docs/claude/architecture-and-
   execution?: ExecutionConfig;         // Default: { mode: 'sequential' }
   timeout?: number;                    // Per-iteration deadline (ms). Default: 600000 (10 min)
   scorers?: Scorer[];                  // Default: []
+  passThreshold?: number;              // 0..1; CLI exit 0 when _overall.passRate >= this. Default: 1.0
   verbose?: boolean;                   // Default: false (show SDK logs)
   tempDirCleanup?: TempDirCleanup;     // Default: 'always' ('always' | 'on-failure' | 'never')
   resultsDir?: string;                 // Optional: export results to dir
@@ -80,3 +81,33 @@ import { formatResultsAsMarkdown, writeResults } from 'code-agent-eval';
 const markdown = formatResultsAsMarkdown(result);
 const dirPath = await writeResults(result, './custom-dir');
 ```
+
+## CI artifacts & exit codes
+
+The CLI is built to gate CI. All of the following are additive — omit the flags and behavior matches earlier versions (`result.success ? 0 : 1`).
+
+**Pass-rate gate** — `--threshold <0..1>` / `CODE_AGENT_EVAL_THRESHOLD` / `passThreshold` in config. The CLI exits `0` when `aggregateScores._overall.passRate >= threshold`, else `1`. Default `1.0` (all iterations must pass). `--dry-run` prints the resolved threshold in the plan.
+
+**Artifact export** — `--output <path>`, repeatable, format inferred from the extension:
+
+| Extension | Formatter | Shape |
+| --------- | --------- | ----- |
+| `.xml` (incl. `.junit.xml`) | `formatResultsAsJUnit` | `<testsuites>` → one `<testsuite>` per prompt, one `<testcase>` per iteration; failed iteration → `<failure>` with failing-scorer names + reasons |
+| `.json` | `formatResultsAsJson` | full `EvalResult` (same as `--json` stdout) |
+| `.md` | `formatResultsAsMarkdown` | human-readable report |
+
+Unknown extension → exit `2`. Paths are validated up front (before the run burns time). Writing happens in the CLI; the library return value is untouched.
+
+**GitHub job summary** — when `$GITHUB_STEP_SUMMARY` is set (always true on GitHub Actions), the CLI appends a Markdown pass/fail summary via `formatResultsAsGitHubSummary`. No tokens, no API calls, appends (never overwrites).
+
+**Exit codes** (`sysexits.h`):
+
+| Code | Meaning |
+| ---- | ------- |
+| `0`  | Pass (rate ≥ threshold) |
+| `1`  | Fail (rate < threshold) |
+| `2`  | Usage error (bad arg / unknown `--output` extension) |
+| `69` | `ANTHROPIC_API_KEY` missing — fail-fast preflight before any iteration; skipped for `--dry-run`/`--help`/`--version`/`--show-skill` |
+| `78` | Config error (eval file failed to load) |
+
+All formatters (`formatResultsAsJUnit`, `formatResultsAsJson`, `formatResultsAsGitHubSummary`, `formatResultsAsMarkdown`) are exported for programmatic use. A copy-paste CI workflow lives in `examples/github-actions.yml`.

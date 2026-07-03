@@ -69,10 +69,12 @@ flag|purpose
 `--json`|structured results on stdout; logs on stderr
 `--print-schema`|emit the JSON Schema (pipe to a file for offline use)
 `--iterations <n>`|override iteration count
+`--threshold <0..1>`|gate the exit code on overall pass rate (default `1.0` = all must pass)
+`--output <path>`|write an artifact; repeatable; format from extension (`.xml` JUnit / `.json` / `.md`)
 `--results-dir <path>`|write `results.md`, `results.json`, `iteration-*.log`
 `--no-agent-detect`|force human-readable output even inside a coding agent env
 
-Environment variable overrides: `CODE_AGENT_EVAL_ITERATIONS`, `CODE_AGENT_EVAL_VERBOSE`, `CODE_AGENT_EVAL_RESULTS_DIR`, `CODE_AGENT_EVAL_AGENT_DETECT=0`.
+Environment variable overrides: `CODE_AGENT_EVAL_ITERATIONS`, `CODE_AGENT_EVAL_THRESHOLD`, `CODE_AGENT_EVAL_VERBOSE`, `CODE_AGENT_EVAL_RESULTS_DIR`, `CODE_AGENT_EVAL_AGENT_DETECT=0`.
 
 **JSON output shape:**
 
@@ -81,7 +83,24 @@ Environment variable overrides: `CODE_AGENT_EVAL_ITERATIONS`, `CODE_AGENT_EVAL_V
 { "status": "error", "agentDetection": {...}, "error": { "code": "CONFIG_INVALID", "message": "...", "fix": "...", "transient": false } }
 ```
 
-Exit codes: `0` success · `1` eval failure · `2` usage error · `78` config error.
+Exit codes: `0` pass (rate ≥ threshold) · `1` fail (rate < threshold) · `2` usage error · `69` `ANTHROPIC_API_KEY` missing (fail-fast preflight) · `78` config error.
+
+### GitHub Actions
+
+Gate a PR on pass rate, upload a JUnit artifact, and get a job summary — no wrapper Action:
+
+```yaml
+- run: npx code-agent-eval --eval-file eval.json --threshold 0.8 --output results.junit.xml
+  env:
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+- uses: actions/upload-artifact@v4
+  if: always()
+  with:
+    name: eval-results
+    path: results.junit.xml
+```
+
+`--output` writes JUnit XML (testsuite per prompt, testcase per iteration) so CI test dashboards render each iteration; when `$GITHUB_STEP_SUMMARY` is set (always on Actions) the CLI appends a Markdown pass/fail summary. Full copy-paste workflow: [`examples/github-actions.yml`](examples/github-actions.yml).
 
 ---
 

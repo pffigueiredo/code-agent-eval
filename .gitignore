@@ -6,6 +6,7 @@ schema.json
 .serena
 docs
 eval-results
+ci-artifacts
 thoughts/shared/plans
 # Riptide artifacts (cloud-synced)
 .humanlayer/tasks/
