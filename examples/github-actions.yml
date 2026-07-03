@@ -1,0 +1,42 @@
+# Copy-paste GitHub Actions workflow: run a code-agent-eval in CI and gate a PR
+# on the pass rate, upload a JUnit artifact, and render a job summary.
+#
+# Prereqs:
+#   - An eval config file in your repo (see examples/cli-test.ts).
+#   - ANTHROPIC_API_KEY stored as a repository/organization secret.
+name: eval
+
+on:
+  pull_request:
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # --threshold gates the exit code: pass when >=80% of iterations pass.
+      # --output writes JUnit XML (extension-inferred).
+      # $GITHUB_STEP_SUMMARY is set by Actions, so a Markdown summary is appended
+      # automatically — no extra flag needed.
+      - name: Run eval
+        run: >-
+          npx code-agent-eval
+          --eval-file ./evals/health-check.ts
+          --iterations 5
+          --threshold 0.8
+          --output results.junit.xml
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      # Upload even on failure so the artifact is available when the gate fails.
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: results.junit.xml
+          if-no-files-found: error

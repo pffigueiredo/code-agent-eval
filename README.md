@@ -17,6 +17,7 @@ Evaluate coding agent prompts (Claude Code, Cursor, etc.) by running them multip
 - 📊 Git diff capture; with `resultsDir`, exports `results.md`, per-iteration logs, and `results.json`
 - 🔧 Environment variable injection (static/dynamic)
 - 🖥️ CLI (`code-agent-eval`) to run evals from a config file (`--eval-file`)
+- 🚦 CI-ready: pass-rate `--threshold` gate, semantic exit codes, `--output` JUnit/JSON/Markdown artifacts, GitHub job summary
 
 ## Installation
 
@@ -59,9 +60,39 @@ After `npm install -g code-agent-eval`, use `code-agent-eval` instead of `npx`. 
 
 Eval files loaded via `--eval-file` may use `import { BuildSuccessScorer, … } from 'code-agent-eval'`. The CLI resolves that specifier to the same package as the running binary, so **`npx` works without installing `code-agent-eval` in the project** (no local `node_modules` entry required for those imports).
 
-Useful options: `--json` (results on stdout), `--dry-run` (validate config and print plan), `--show-skill` (print eval/skill guide), `--iterations`, `--verbose`, `--results-dir`. Env vars `CODE_AGENT_EVAL_ITERATIONS`, `CODE_AGENT_EVAL_VERBOSE`, `CODE_AGENT_EVAL_RESULTS_DIR` override config when set.
+Useful options: `--json` (results on stdout), `--dry-run` (validate config and print plan), `--show-skill` (print eval/skill guide), `--iterations`, `--verbose`, `--results-dir`, `--threshold`, `--output`. Env vars `CODE_AGENT_EVAL_ITERATIONS`, `CODE_AGENT_EVAL_VERBOSE`, `CODE_AGENT_EVAL_RESULTS_DIR`, `CODE_AGENT_EVAL_THRESHOLD` override config when set. Precedence: **flags > env vars > config file**.
 
 When the process runs inside an agentic environment, JSON-style stdout may be selected automatically; use `--no-agent-detect` or `CODE_AGENT_EVAL_AGENT_DETECT=0` to disable.
+
+### CI / GitHub Actions
+
+The CLI is a first-class CI executable: deterministic exit code, a configurable pass-rate gate, machine-readable artifacts, and a GitHub job summary — no wrapper Action required.
+
+- **Gate on pass rate** with `--threshold <0..1>` (or `passThreshold` in config, or `CODE_AGENT_EVAL_THRESHOLD`). Default `1.0` means every iteration must pass; `--threshold 0.8` passes when ≥80% of iterations pass.
+- **Emit artifacts** with `--output <path>`, repeatable, format inferred from the extension: `.xml` → JUnit XML (testsuite per prompt, testcase per iteration), `.json` → full `EvalResult`, `.md` → Markdown. Upload the JUnit file to render each iteration in CI test dashboards.
+- **Job summary**: when `$GITHUB_STEP_SUMMARY` is set (it always is on GitHub Actions), the CLI appends a Markdown pass/fail summary — no tokens, no API calls.
+
+```yaml
+# .github/workflows/eval.yml — see examples/github-actions.yml for the full copy-paste version
+- run: npx code-agent-eval --eval-file ./evals/health-check.ts --threshold 0.8 --output results.junit.xml
+  env:
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+- uses: actions/upload-artifact@v4
+  if: always()
+  with:
+    name: eval-results
+    path: results.junit.xml
+```
+
+**Exit codes** (`sysexits.h` convention) let CI branch on the outcome:
+
+| Code | Meaning |
+| ---- | ------- |
+| `0`  | Pass — overall pass rate ≥ threshold |
+| `1`  | Fail — pass rate below threshold |
+| `2`  | Usage error (bad flag / arg / unknown `--output` extension) |
+| `69` | `ANTHROPIC_API_KEY` missing (fail-fast preflight, before any iteration) |
+| `78` | Config error (eval file failed to load) |
 
 ## Development
 
@@ -80,6 +111,8 @@ pnpm dlx tsx examples/results-export.ts
 pnpm dlx tsx examples/plugin-execution.ts
 node dist/cli.mjs --eval-file ./examples/cli-test.ts   # after pnpm run build
 ```
+
+A copy-paste GitHub Actions workflow (threshold gate + JUnit artifact + job summary) lives in [`examples/github-actions.yml`](examples/github-actions.yml).
 
 ## Releasing
 
