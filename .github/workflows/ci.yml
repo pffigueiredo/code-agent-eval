@@ -31,7 +31,7 @@ jobs:
       - run: node dist/cli.mjs --eval-file ./examples/cli-test.ts --dry-run
       # Emit real JUnit + JSON artifacts from a committed fixture (no API key).
       - run: pnpm dlx tsx tests/fixtures/emit-artifacts.ts ./ci-artifacts
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: eval-results
           path: ci-artifacts/
