@@ -259,6 +259,63 @@ describe('CLI: --dry-run', () => {
   });
 });
 
+describe('CLI: --threshold gating', () => {
+  // A dummy key lets the run execute; every iteration fails deterministically
+  // (SDK errors), so _overall.passRate is 0.
+  const failEnv = { ANTHROPIC_API_KEY: 'sk-dummy', CLAUDECODE: '' };
+
+  it('surfaces the resolved threshold in the dry-run plan', async () => {
+    const { stdout } = await run(
+      ['--dry-run', '--json', '--eval-file', EVAL_FILE, '--threshold', '0.5'],
+      { CLAUDECODE: '' }
+    );
+    const parsed = JSON.parse(stdout);
+    expect(parsed.data.threshold).toBe(0.5);
+  });
+
+  it('defaults threshold to 1.0 in the dry-run plan', async () => {
+    const { stdout } = await run(
+      ['--dry-run', '--json', '--eval-file', EVAL_FILE],
+      { CLAUDECODE: '' }
+    );
+    const parsed = JSON.parse(stdout);
+    expect(parsed.data.threshold).toBe(1);
+  });
+
+  it('exits 2 on out-of-range --threshold', async () => {
+    const { exitCode, stderr } = await run(
+      ['--eval-file', EVAL_FILE, '--threshold', '1.5', '--no-agent-detect'],
+      failEnv
+    );
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain('--threshold');
+  });
+
+  it('--threshold 0 passes an all-failing run (exit 0)', async () => {
+    const { exitCode } = await run(
+      ['--eval-file', EVAL_FILE, '--threshold', '0', '--no-agent-detect'],
+      failEnv
+    );
+    expect(exitCode).toBe(0);
+  }, 120000);
+
+  it('default threshold fails an all-failing run (exit 1)', async () => {
+    const { exitCode } = await run(
+      ['--eval-file', EVAL_FILE, '--no-agent-detect'],
+      failEnv
+    );
+    expect(exitCode).toBe(1);
+  }, 120000);
+
+  it('honors CODE_AGENT_EVAL_THRESHOLD env override', async () => {
+    const { exitCode } = await run(
+      ['--eval-file', EVAL_FILE, '--no-agent-detect'],
+      { ...failEnv, CODE_AGENT_EVAL_THRESHOLD: '0' }
+    );
+    expect(exitCode).toBe(0);
+  }, 120000);
+});
+
 describe('CLI: env var overrides', () => {
   it('CODE_AGENT_EVAL_ITERATIONS overrides config', async () => {
     const { stdout } = await run(

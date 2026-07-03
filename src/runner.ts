@@ -42,6 +42,7 @@ export interface EvalConfig {
   verbose?: boolean; // Default: false. Show detailed SDK message logs when true
   tempDirCleanup?: TempDirCleanup; // Default: 'always'. Controls when temp directories are deleted
   resultsDir?: string; // Optional: Directory to write markdown results file
+  passThreshold?: number; // 0..1; CLI exits 0 when _overall.passRate >= this. Default 1.0
   installDependencies?: boolean; // Default: true. Set false to skip package installation
   environmentVariables?:
     | Record<string, string>

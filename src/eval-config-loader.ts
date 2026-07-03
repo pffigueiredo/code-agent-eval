@@ -40,6 +40,7 @@ export const evalConfigSchema = z.object({
   verbose: z.boolean().optional(),
   tempDirCleanup: z.enum(['always', 'on-failure', 'never']).optional(),
   resultsDir: z.string().optional(),
+  passThreshold: z.number().min(0).max(1).optional(),
   installDependencies: z.boolean().optional(),
   environmentVariables: z
     .union([

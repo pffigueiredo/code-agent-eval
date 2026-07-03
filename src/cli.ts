@@ -40,6 +40,7 @@ Usage: code-agent-eval --eval-file <path> [options]
 Options:
   --eval-file <path>     Path to eval config file (.ts/.js)
   --iterations <n>       Override iteration count
+  --threshold <0..1>     Pass when overall pass rate >= this (default 1.0)
   --verbose              Enable verbose logging
   --results-dir <path>   Override results directory
   --json                 Output results as JSON to stdout
@@ -51,6 +52,7 @@ Options:
 
 Environment variables:
   CODE_AGENT_EVAL_ITERATIONS     Override iteration count
+  CODE_AGENT_EVAL_THRESHOLD      Override pass-rate threshold (0..1)
   CODE_AGENT_EVAL_VERBOSE        Set to "1" or "true" for verbose
   CODE_AGENT_EVAL_RESULTS_DIR    Override results directory
   CODE_AGENT_EVAL_AGENT_DETECT   Set to "0" to disable agent detection
@@ -72,6 +74,7 @@ async function main() {
       options: {
         'eval-file': { type: 'string' },
         iterations: { type: 'string' },
+        threshold: { type: 'string' },
         verbose: { type: 'boolean', default: false },
         'results-dir': { type: 'string' },
         json: { type: 'boolean', default: false },
@@ -210,6 +213,30 @@ async function main() {
     if (!Number.isNaN(n) && n >= 1) overrides.iterations = n;
   }
 
+  const thresholdFlag = values.threshold as string | undefined;
+  const thresholdEnv = process.env.CODE_AGENT_EVAL_THRESHOLD;
+  const thresholdRaw = thresholdFlag ?? thresholdEnv;
+  if (thresholdRaw !== undefined) {
+    const t = Number(thresholdRaw);
+    if (Number.isNaN(t) || t < 0 || t > 1) {
+      if (isJson) {
+        stdoutJson({
+          status: 'error',
+          agentDetection,
+          error: {
+            code: 'INVALID_ARG',
+            message: '--threshold must be a number between 0 and 1',
+            transient: false,
+          },
+        });
+      } else {
+        console.error('Error: --threshold must be a number between 0 and 1');
+      }
+      process.exit(EXIT.USAGE);
+    }
+    overrides.passThreshold = t;
+  }
+
   if (
     values.verbose ||
     ['1', 'true'].includes(process.env.CODE_AGENT_EVAL_VERBOSE ?? '')
@@ -235,6 +262,7 @@ async function main() {
       iterations,
       totalRuns,
       execution: execMode,
+      threshold: finalConfig.passThreshold ?? 1.0,
       scorers: (finalConfig.scorers ?? []).map((s) => s.name),
       resultsDir: finalConfig.resultsDir ?? null,
       projectDir: path.resolve(finalConfig.projectDir),
@@ -252,6 +280,7 @@ async function main() {
       stdout(`  Iterations: ${iterations}`);
       stdout(`  Total runs: ${totalRuns}`);
       stdout(`  Execution:  ${execMode}`);
+      stdout(`  Threshold:  ${plan.threshold}`);
       stdout(
         `  Scorers:    ${plan.scorers.length ? plan.scorers.join(', ') : '(none)'}`
       );
@@ -330,7 +359,10 @@ async function main() {
     }
   }
 
-  process.exit(result.success ? EXIT.SUCCESS : EXIT.EVAL_FAILURE);
+  const overall =
+    result.aggregateScores._overall?.passRate ?? (result.success ? 1 : 0);
+  const passed = overall >= (finalConfig.passThreshold ?? 1.0);
+  process.exit(passed ? EXIT.SUCCESS : EXIT.EVAL_FAILURE);
 }
 
 main().catch((err) => {
