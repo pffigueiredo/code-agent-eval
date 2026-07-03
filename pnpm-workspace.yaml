@@ -1,0 +1,7 @@
+# pnpm 11 introduced stricter defaults; restore pnpm 10 install behavior.
+# minimumReleaseAge defaulted to 0 under pnpm 10 (no publish-age delay).
+minimumReleaseAge: 0
+
+# strictDepBuilds defaults to true; declare the build scripts we allow.
+allowBuilds:
+  esbuild: true
