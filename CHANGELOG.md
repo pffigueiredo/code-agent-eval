@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.1-alpha.10] - 2026-07-03
+
+[compare changes](https://github.com/pffigueiredo/code-agent-eval/compare/v0.0.1-alpha.9...v0.0.1-alpha.10)
+
+### 🚀 Enhancements
+
+- **cli:** Configurable pass-rate threshold gating ([6290435](https://github.com/pffigueiredo/code-agent-eval/commit/6290435))
+- **cli:** Fail-fast ANTHROPIC_API_KEY preflight ([3c7e4f6](https://github.com/pffigueiredo/code-agent-eval/commit/3c7e4f6))
+- **cli:** --output artifact export (JUnit XML + JSON, extension-inferred) ([c23553d](https://github.com/pffigueiredo/code-agent-eval/commit/c23553d))
+- **cli:** GitHub Step Summary output ([b271842](https://github.com/pffigueiredo/code-agent-eval/commit/b271842))
+
+### 🩹 Fixes
+
+- **release:** Choose latest dist-tag at publish time ([#19](https://github.com/pffigueiredo/code-agent-eval/pull/19))
+- **deps:** Update non-major deps ([#20](https://github.com/pffigueiredo/code-agent-eval/pull/20))
+- **cli:** Address review — align verdict, harden artifacts, drop dead flag ([e96fed5](https://github.com/pffigueiredo/code-agent-eval/commit/e96fed5))
+
+### 📖 Documentation
+
+- Document CI features (threshold, --output artifacts, exit codes) + example workflow ([2979231](https://github.com/pffigueiredo/code-agent-eval/commit/2979231))
+
+### 🏡 Chore
+
+- Trim AI-slop comments and over-built test assertion ([f27ad61](https://github.com/pffigueiredo/code-agent-eval/commit/f27ad61))
+- **knip:** Drop redundant entry patterns (index.ts, cli.ts inferred from package.json) ([ac56336](https://github.com/pffigueiredo/code-agent-eval/commit/ac56336))
+
+### 🎨 Styles
+
+- Biome format the merged CI code (tabs, double quotes, template literals) ([cfd6d6e](https://github.com/pffigueiredo/code-agent-eval/commit/cfd6d6e))
+
+### 🤖 CI
+
+- Dogfood built binary in self-CI + upload real artifact ([225d210](https://github.com/pffigueiredo/code-agent-eval/commit/225d210))
+
+### ❤️ Contributors
+
+- Pedro Figueiredo <klisarkk@gmail.com>
+
 ## [0.0.1-alpha.9] - 2026-07-02
 
 [compare changes](https://github.com/pffigueiredo/code-agent-eval/compare/v0.0.1-alpha.8...v0.0.1-alpha.9)
