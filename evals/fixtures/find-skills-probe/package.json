@@ -1,0 +1,7 @@
+{
+  "name": "find-skills-probe-fixture",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimal fixture repo used to probe the find-skills skill under cc-eval."
+}
