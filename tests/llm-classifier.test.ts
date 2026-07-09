@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { ClassifierSpec } from "../src";
+import type { ClassifierSpec, ScorerContext } from "../src";
 import { LLMClassifierScorer } from "../src";
 
 // Mock the SDK. `query` is driven per-test via `queueResult`.
@@ -49,7 +49,7 @@ const dummyContext = (over: Partial<Record<string, unknown>> = {}) =>
 		prompt: "refactor the parser",
 		execCommand: async () => ({ score: 0, reason: "" }),
 		...over,
-	}) as any;
+	}) as ScorerContext;
 
 beforeEach(() => {
 	query.mockReset();
@@ -68,7 +68,7 @@ describe("LLMClassifierScorer.evaluate", () => {
 			chosenDescription: "Partially",
 			reasoning: "half of it",
 		});
-		expect(result.metadata!.choices).toEqual(validSpec.choices);
+		expect(result.metadata?.choices).toEqual(validSpec.choices);
 	});
 
 	test("falls back to regex on result text when no structured_output", async () => {
@@ -77,7 +77,7 @@ describe("LLMClassifierScorer.evaluate", () => {
 			dummyContext(),
 		);
 		expect(result.score).toBe(1);
-		expect(result.metadata!.choice).toBe("A");
+		expect(result.metadata?.choice).toBe("A");
 	});
 
 	test("parses JSON embedded in result text", async () => {
@@ -86,8 +86,8 @@ describe("LLMClassifierScorer.evaluate", () => {
 			dummyContext(),
 		);
 		expect(result.score).toBe(0);
-		expect(result.metadata!.choice).toBe("C");
-		expect(result.metadata!.reasoning).toBe("nope");
+		expect(result.metadata?.choice).toBe("C");
+		expect(result.metadata?.reasoning).toBe("nope");
 	});
 
 	test("unknown label yields score 0 flagged unrecognized, never undefined", async () => {
@@ -97,7 +97,7 @@ describe("LLMClassifierScorer.evaluate", () => {
 		);
 		expect(result.score).toBe(0);
 		expect(result.reason).toContain("unrecognized choice 'Z'");
-		expect(result.metadata!.unrecognized).toBe(true);
+		expect(result.metadata?.unrecognized).toBe(true);
 		expect(result).toBeDefined();
 	});
 
@@ -107,9 +107,9 @@ describe("LLMClassifierScorer.evaluate", () => {
 			dummyContext(),
 		);
 		expect(result.score).toBe(0.5);
-		expect(result.metadata!.unrecognized).toBe(false);
-		expect(result.metadata!.choice).toBe("B"); // canonical, not the raw 'b '
-		expect(result.metadata!.rawChoice).toBe("b ");
+		expect(result.metadata?.unrecognized).toBe(false);
+		expect(result.metadata?.choice).toBe("B"); // canonical, not the raw 'b '
+		expect(result.metadata?.rawChoice).toBe("b ");
 	});
 
 	test("fallback picks the concluding label, not an earlier rejected one", async () => {
@@ -117,7 +117,7 @@ describe("LLMClassifierScorer.evaluate", () => {
 		const result = await new LLMClassifierScorer(validSpec).evaluate(
 			dummyContext(),
 		);
-		expect(result.metadata!.choice).toBe("C");
+		expect(result.metadata?.choice).toBe("C");
 		expect(result.score).toBe(0);
 	});
 
@@ -129,7 +129,7 @@ describe("LLMClassifierScorer.evaluate", () => {
 		const result = await new LLMClassifierScorer(validSpec).evaluate(
 			dummyContext(),
 		);
-		expect(result.metadata!.choice).toBe("C");
+		expect(result.metadata?.choice).toBe("C");
 		expect(result.score).toBe(0);
 	});
 
@@ -140,7 +140,7 @@ describe("LLMClassifierScorer.evaluate", () => {
 		);
 		expect(result.score).toBe(0);
 		expect(result.reason).toBe("judge returned no parseable choice");
-		expect(result.metadata!.failure).toBe("no-choice");
+		expect(result.metadata?.failure).toBe("no-choice");
 	});
 
 	test("judge that never completes (error subtype) is flagged as an infra failure", async () => {
@@ -154,7 +154,7 @@ describe("LLMClassifierScorer.evaluate", () => {
 			dummyContext(),
 		);
 		expect(result.score).toBe(0);
-		expect(result.metadata!.failure).toBe("error");
+		expect(result.metadata?.failure).toBe("error");
 		expect(result.reason).toContain("error_max_turns");
 	});
 

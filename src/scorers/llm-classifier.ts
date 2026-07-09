@@ -128,12 +128,14 @@ function validateSpec(spec: ClassifierSpec): void {
 		// case-insensitively too (else 'a' and 'A' would be an ambiguous pair).
 		const seen = new Set<string>();
 		spec.choices.forEach((choice, i) => {
-			const key = choice.label?.trim().toLowerCase();
-			if (!choice.label || choice.label.trim() === "")
+			if (!choice.label || choice.label.trim() === "") {
 				problems.push(`choices[${i}].label must be a non-blank string`);
-			else if (seen.has(key!))
-				problems.push(`duplicate choice label '${choice.label}'`);
-			else seen.add(key!);
+			} else {
+				const key = choice.label.trim().toLowerCase();
+				if (seen.has(key))
+					problems.push(`duplicate choice label '${choice.label}'`);
+				else seen.add(key);
+			}
 
 			if (!choice.description || choice.description.trim() === "")
 				problems.push(`choices[${i}].description must be a non-blank string`);
