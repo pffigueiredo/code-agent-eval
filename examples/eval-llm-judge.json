@@ -16,9 +16,21 @@
 				"name": "llm:mirrors-style",
 				"instructions": "Did the change follow the file's existing style?\nTask:\n{{prompt}}\n\nDiff:\n{{diff}}",
 				"choices": [
-					{ "label": "A", "description": "Yes — matches surrounding conventions", "score": 1 },
-					{ "label": "B", "description": "Somewhat — minor deviations", "score": 0.6 },
-					{ "label": "C", "description": "No — clashes with existing style", "score": 0 }
+					{
+						"label": "A",
+						"description": "Yes — matches surrounding conventions",
+						"score": 1
+					},
+					{
+						"label": "B",
+						"description": "Somewhat — minor deviations",
+						"score": 0.6
+					},
+					{
+						"label": "C",
+						"description": "No — clashes with existing style",
+						"score": 0
+					}
 				],
 				"passThreshold": 0.6
 			}
