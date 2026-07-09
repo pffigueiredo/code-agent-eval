@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.0.1-alpha.9...release/0.0.1-alpha.11
+
+[compare changes](https://github.com/pffigueiredo/code-agent-eval/compare/v0.0.1-alpha.9...release/0.0.1-alpha.11)
+
+### 🚀 Enhancements
+
+- **cli:** CI-compatible executable with pass/fail artifacts ([#24](https://github.com/pffigueiredo/code-agent-eval/pull/24))
+- **scorers:** LLM-as-judge scorers + output-style SDK eval ([#34](https://github.com/pffigueiredo/code-agent-eval/pull/34))
+
+### 🩹 Fixes
+
+- **release:** Choose latest dist-tag at publish time ([#19](https://github.com/pffigueiredo/code-agent-eval/pull/19))
+- **deps:** Update non-major deps ([#20](https://github.com/pffigueiredo/code-agent-eval/pull/20))
+- **deps:** Update dependency @anthropic-ai/claude-agent-sdk to v0.3.200 ([#29](https://github.com/pffigueiredo/code-agent-eval/pull/29))
+- **deps:** Update dependency @anthropic-ai/claude-agent-sdk to v0.3.201 ([#30](https://github.com/pffigueiredo/code-agent-eval/pull/30))
+- **deps:** Update non-major deps ([#33](https://github.com/pffigueiredo/code-agent-eval/pull/33))
+- **deps:** Update dependency @anthropic-ai/claude-agent-sdk to v0.3.204 ([#35](https://github.com/pffigueiredo/code-agent-eval/pull/35))
+- **deps:** Update dependency @anthropic-ai/claude-agent-sdk to v0.3.205 ([#38](https://github.com/pffigueiredo/code-agent-eval/pull/38))
+
+### 🏡 Chore
+
+- Release v0.0.1-alpha.10 ([#27](https://github.com/pffigueiredo/code-agent-eval/pull/27))
+- **deps:** ⚠️  Update actions/upload-artifact action to v7 ([#26](https://github.com/pffigueiredo/code-agent-eval/pull/26))
+
+#### ⚠️ Breaking Changes
+
+- **deps:** ⚠️  Update actions/upload-artifact action to v7 ([#26](https://github.com/pffigueiredo/code-agent-eval/pull/26))
+
+### ❤️ Contributors
+
+- Pedro Figueiredo <klisarkk@gmail.com>
+
 ## [0.0.1-alpha.10] - 2026-07-03
 
 [compare changes](https://github.com/pffigueiredo/code-agent-eval/compare/v0.0.1-alpha.9...v0.0.1-alpha.10)
