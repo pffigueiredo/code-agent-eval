@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { ClassifierSpec } from "../src";
+import type { ClassifierSpec, ScorerContext } from "../src";
 import {
 	CodeQuality,
 	InstructionFollowing,
@@ -40,7 +40,7 @@ const dummyContext = (over: Partial<Record<string, unknown>> = {}) =>
 		prompt: "refactor the parser",
 		execCommand: async () => ({ score: 0, reason: "" }),
 		...over,
-	}) as any;
+	}) as ScorerContext;
 
 beforeEach(() => {
 	query.mockReset();
@@ -81,8 +81,8 @@ describe("built-in classifiers are well-formed", () => {
 		specs,
 	)("%s sets a passThreshold below its top score", (_name, spec) => {
 		expect(spec.passThreshold).toBeDefined();
-		expect(spec.passThreshold!).toBeLessThan(1);
-		expect(spec.passThreshold!).toBeGreaterThan(0);
+		expect(spec.passThreshold ?? Number.NaN).toBeLessThan(1);
+		expect(spec.passThreshold ?? Number.NaN).toBeGreaterThan(0);
 	});
 });
 
@@ -93,8 +93,8 @@ describe("built-in classifiers drive LLMClassifierScorer end-to-end", () => {
 			dummyContext(),
 		);
 		expect(result.score).toBe(0.6);
-		expect(result.metadata!.choice).toBe("B");
-		expect(result.metadata!.chosenDescription).toBe(
+		expect(result.metadata?.choice).toBe("B");
+		expect(result.metadata?.chosenDescription).toBe(
 			"Mostly — main request done, something minor missed",
 		);
 	});
@@ -105,8 +105,8 @@ describe("built-in classifiers drive LLMClassifierScorer end-to-end", () => {
 			dummyContext(),
 		);
 		expect(result.score).toBe(1);
-		expect(result.metadata!.choice).toBe("A");
-		expect(result.metadata!.chosenDescription).toBe(
+		expect(result.metadata?.choice).toBe("A");
+		expect(result.metadata?.chosenDescription).toBe(
 			"High — clear, idiomatic, easy to follow",
 		);
 	});
@@ -117,8 +117,8 @@ describe("built-in classifiers drive LLMClassifierScorer end-to-end", () => {
 			dummyContext(),
 		);
 		expect(result.score).toBe(0);
-		expect(result.metadata!.choice).toBe("C");
-		expect(result.metadata!.chosenDescription).toBe(
+		expect(result.metadata?.choice).toBe("C");
+		expect(result.metadata?.chosenDescription).toBe(
 			"Serious — a clear, exploitable vulnerability introduced",
 		);
 	});
