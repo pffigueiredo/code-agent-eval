@@ -1,6 +1,12 @@
 import { resolveLibraryEntry } from "../resolve-entry";
-import type { Scorer, ScorerContext, ScorerResult } from "../types";
+import type {
+	ClassifierSpec,
+	Scorer,
+	ScorerContext,
+	ScorerResult,
+} from "../types";
 import { SkillPickedUpScorer } from "./agent";
+import { CodeQuality, InstructionFollowing, Security } from "./classifiers";
 import {
 	BuildSuccessScorer,
 	LintSuccessScorer,
@@ -9,7 +15,15 @@ import {
 import { DiffContainsScorer } from "./diff";
 import { clampScore } from "./factories";
 import { FileScorer } from "./file";
+import { LLMClassifierScorer } from "./llm-classifier";
 import type { ScorerSpec, ScriptScorerSpec } from "./schema";
+
+/** Built-in classifier specs, selectable by name in an `llm-classifier` spec. */
+export const BUILTINS: Record<string, ClassifierSpec> = {
+	InstructionFollowing,
+	CodeQuality,
+	Security,
+};
 
 async function importScriptDefault(scriptPath: string): Promise<unknown> {
 	const { createJiti } = await import("jiti");
@@ -100,6 +114,18 @@ export function compileScorer(spec: ScorerSpec): Scorer {
 					return { ...result, score: clampScore(result.score) };
 				},
 			};
+		case "llm-classifier": {
+			if (typeof spec.spec === "string") {
+				const builtin = BUILTINS[spec.spec];
+				if (!builtin) {
+					throw new Error(
+						`Unknown built-in classifier '${spec.spec}' (valid: ${Object.keys(BUILTINS).join(", ")})`,
+					);
+				}
+				return new LLMClassifierScorer(builtin);
+			}
+			return new LLMClassifierScorer(spec.spec as ClassifierSpec);
+		}
 		default: {
 			const _exhaustive: never = spec;
 			throw new Error(`Unknown scorer type: ${JSON.stringify(_exhaustive)}`);

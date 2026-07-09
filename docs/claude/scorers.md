@@ -62,3 +62,38 @@ class BuildAndCheckScorer extends BaseScorer {
   }
 }
 ```
+
+## LLM-as-judge (`llm-classifier`)
+
+Scores subjective criteria a command can't check. A judge is declared as data — a `ClassifierSpec` (a question + a rubric of labelled choices) — and run by `LLMClassifierScorer`. The judge picks exactly one label; that label's `score` becomes the result. Needs `ANTHROPIC_API_KEY`.
+
+Select a built-in by name (`InstructionFollowing`, `CodeQuality`, `Security`), or supply a custom spec:
+
+```json
+{ "type": "llm-classifier", "spec": "InstructionFollowing" }
+```
+
+```json
+{
+  "type": "llm-classifier",
+  "spec": {
+    "name": "llm:mirrors-style",
+    "instructions": "Did the change follow the file's existing style?\nTask:\n{{prompt}}\n\nDiff:\n{{diff}}",
+    "choices": [
+      { "label": "A", "description": "Yes — matches surrounding conventions", "score": 1 },
+      { "label": "B", "description": "Somewhat — minor deviations", "score": 0.6 },
+      { "label": "C", "description": "No — clashes with existing style", "score": 0 }
+    ],
+    "passThreshold": 0.6
+  }
+}
+```
+
+`instructions` is the QUESTION only; it may reference `{{prompt}}`, `{{diff}}`, `{{finalText}}`, `{{agentOutput}}`. The judge runs neutral and single-turn (regex fallback if structured output is unavailable), and degrades to `score: 0` on an infra fault or unparseable verdict rather than throwing. The chosen label + description land in `metadata`.
+
+**passThreshold** — a scorer passes when `score >= passThreshold` (default 1.0). Binary command scorers stay all-or-nothing; graded judges opt into a lower bar via `passThreshold` on the spec. This drives both the iteration's `success` and each scorer's `passRate`. `isScorePassing(result)` implements the decision.
+
+**Optional spec fields:**
+
+- `model` — override the judge model (e.g. `"claude-opus-4-8"`). Defaults to the SDK's default model.
+- `useCoT` — set `false` to drop the "reason step by step" nudge. Defaults to `true`.

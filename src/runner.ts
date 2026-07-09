@@ -509,6 +509,7 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
 					diff,
 					agentOutput,
 					promptId,
+					prompt,
 					environmentVariables: envVars,
 					execCommand,
 				});
@@ -521,7 +522,7 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
 			}
 
 			const duration = Date.now() - startTime;
-			const success = Object.values(scores).every((s) => s.score === 1.0);
+			const success = Object.values(scores).every(isScorePassing);
 			iterationSuccess = success;
 
 			// Determine if we should keep the temp directory based on cleanup mode
@@ -585,9 +586,17 @@ REMEMBER: You are in a temporary, isolated test directory. All your work stays h
 }
 
 /**
+ * Decide whether a scorer result counts as passing. Binary scorers use the
+ * default threshold of 1.0; graded scorers may opt into a lower `passThreshold`.
+ */
+export function isScorePassing(result: ScorerResult): boolean {
+	return result.score >= (result.passThreshold ?? 1.0);
+}
+
+/**
  * Calculate aggregate statistics across iterations
  */
-function calculateAggregateScores(
+export function calculateAggregateScores(
 	results: IterationResult[],
 ): Record<string, AggregateScore> {
 	const aggregates: Record<string, AggregateScore> = {};
@@ -602,12 +611,13 @@ function calculateAggregateScores(
 
 	// Calculate aggregates for each scorer
 	for (const scorerName of scorerNames) {
-		const scores = results
-			.map((r) => r.scores[scorerName]?.score)
-			.filter((s): s is number => s !== undefined);
+		const scorerResults = results
+			.map((r) => r.scores[scorerName])
+			.filter((s): s is ScorerResult => s?.score !== undefined);
 
-		if (scores.length === 0) continue;
+		if (scorerResults.length === 0) continue;
 
+		const scores = scorerResults.map((s) => s.score);
 		const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
 		const min = Math.min(...scores);
 		const max = Math.max(...scores);
@@ -615,14 +625,17 @@ function calculateAggregateScores(
 			scores.reduce((acc, score) => acc + (score - mean) ** 2, 0) /
 			scores.length;
 		const stdDev = Math.sqrt(variance);
-		const passRate = scores.filter((s) => s >= 1.0).length / scores.length;
+		const passRate =
+			scorerResults.filter(isScorePassing).length / scorerResults.length;
 
 		aggregates[scorerName] = { mean, min, max, stdDev, passRate };
 	}
 
 	// Overall pass rate (all scorers passed)
 	const overallPassRate =
-		results.filter((r) => r.success).length / results.length;
+		results.length === 0
+			? 0
+			: results.filter((r) => r.success).length / results.length;
 	aggregates._overall = {
 		mean: overallPassRate,
 		min: overallPassRate,
