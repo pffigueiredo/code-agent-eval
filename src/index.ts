@@ -14,10 +14,19 @@ export {
 	writeResults,
 	writeResultsAsJson,
 } from "./results-writer";
-export { type EvalConfig, runClaudeCodeEval } from "./runner";
+export {
+	type EvalConfig,
+	isScorePassing,
+	runClaudeCodeEval,
+} from "./runner";
 export { SkillPickedUpScorer } from "./scorers/agent";
 // Base scorer class and built-in scorers
 export { BaseScorer } from "./scorers/base";
+export {
+	CodeQuality,
+	InstructionFollowing,
+	Security,
+} from "./scorers/classifiers";
 export {
 	BuildSuccessScorer,
 	LintSuccessScorer,
@@ -25,9 +34,13 @@ export {
 } from "./scorers/code";
 export { DiffContainsScorer } from "./scorers/diff";
 export { FileScorer } from "./scorers/file";
+export { LLMClassifierScorer } from "./scorers/llm-classifier";
+export { BUILTINS } from "./scorers/registry";
 // User-facing types
 export type {
 	AggregateScore,
+	Choice,
+	ClassifierSpec,
 	EnvGeneratorContext,
 	EvalResult,
 	ExecCommandOptions,

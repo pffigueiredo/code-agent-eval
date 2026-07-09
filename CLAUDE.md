@@ -31,12 +31,15 @@ pnpm dlx tsx examples/plugin-execution.ts|plugin example
 - `src/index.ts` — public exports
 - `src/scorers/` — `BaseScorer` abstract class + built-in scorer classes
 - `src/scorers/schema.ts` — `jsonConfigSchema` (JSON path); internal `scorerSpecSchema` (discriminated union) + `baseConfigShape`
-- `src/scorers/registry.ts` — `compileScorer(spec)` — spec → `Scorer` instance
+- `src/scorers/registry.ts` — `compileScorer(spec)` — spec → `Scorer` instance; `BUILTINS` (classifier specs by name)
+- `src/scorers/llm-classifier.ts` — `LLMClassifierScorer` (LLM-judge engine, `ClassifierSpec`, `validateSpec`)
+- `src/scorers/classifiers.ts` — built-in specs (`InstructionFollowing`, `CodeQuality`, `Security`)
 
 ## Must-know
 
 - **v2.0:** Config uses `prompts: Array<{ id, prompt }>`, not a single `prompt` string (one prompt ⇒ array of one).
-- **JSON format:** Agents should author `eval.json` with `$schema: "https://unpkg.com/code-agent-eval/schema.json"`. Scorer types: `build|test|lint|command|file|diff-contains|skill-picked-up|all|any|script`. Get schema with `--print-schema`; validate with `--dry-run`.
+- **JSON format:** Agents should author `eval.json` with `$schema: "https://unpkg.com/code-agent-eval/schema.json"`. Scorer types: `build|test|lint|command|file|diff-contains|skill-picked-up|llm-classifier|all|any|script`. Get schema with `--print-schema`; validate with `--dry-run`.
+- **LLM judge:** `{ type: "llm-classifier", spec }` where `spec` is a built-in name (`InstructionFollowing`/`CodeQuality`/`Security`) or an inline `ClassifierSpec`. Graded scorers opt into a sub-1.0 `passThreshold` on the `ScorerResult`; `isScorePassing` gates iteration success + `passRate`.
 - **Schema split:** `evalConfigSchema` = TS path (allows function scorers); `jsonConfigSchema` = JSON path (structural union, `z.toJSONSchema`-safe). Both live in `src/scorers/schema.ts`.
 - **`schema.json`:** Generated at build time (`pnpm run build` runs `scripts/gen-schema.ts`); shipped in the npm package.
 - **Env:** `ANTHROPIC_API_KEY` required for the Claude Agent SDK.
@@ -57,4 +60,4 @@ pnpm dlx tsx examples/plugin-execution.ts|plugin example
 
 ## Status
 
-Phases 1–5 done (JSON eval configs, scorer registry, script scorer, --print-schema, docs/examples). Phase 4 product roadmap (LLM judges) not done.
+Phases 1–5 done (JSON eval configs, scorer registry, script scorer, --print-schema, docs/examples). LLM judges shipped: `llm-classifier` scorer type (`LLMClassifierScorer` + `ClassifierSpec`), built-in classifiers, per-result `passThreshold` reconciliation via `isScorePassing`.

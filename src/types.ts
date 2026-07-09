@@ -39,6 +39,7 @@ export interface ScorerContext {
 	diff: string; // Git diff output
 	agentOutput: string; // Raw agent response
 	promptId: string; // Which prompt variant is being evaluated
+	prompt: string; // The prompt text given to the agent
 	environmentVariables?: Record<string, string>; // Env vars used in this iteration
 	/** Utility function to execute shell commands and return scored results */
 	execCommand: (options: ExecCommandOptions) => Promise<ScorerResult>;
@@ -48,6 +49,34 @@ export interface ScorerResult {
 	score: number; // 0.0 to 1.0
 	reason: string;
 	metadata?: Record<string, unknown>;
+	passThreshold?: number; // default 1.0; pass when score >= passThreshold
+}
+
+/**
+ * A single rubric option for an LLM classifier — self-describing.
+ * The judge emits exactly one `label`; that choice maps deterministically to `score`.
+ */
+export interface Choice {
+	label: string; // 'A' — the token the judge must emit
+	description: string; // what this verdict means, shown to the judge and echoed into the result
+	score: number; // 0..1 mapped when this label is chosen
+}
+
+/**
+ * Declarative spec for an LLM-as-judge classifier. Data, not code:
+ * the judge prompt is generated from `instructions` + `choices`.
+ *
+ * `instructions` is the QUESTION only and may reference the context vars
+ * `{{prompt}}`, `{{diff}}`, `{{finalText}}`, `{{agentOutput}}` (and the
+ * reserved-but-unpopulated `{{expected}}`).
+ */
+export interface ClassifierSpec {
+	name: string; // -> scorer name, e.g. 'llm:instruction-following'
+	instructions: string; // the QUESTION only
+	choices: Choice[]; // the rubric options; the judge picks exactly one label
+	useCoT?: boolean; // default true
+	passThreshold?: number; // default 1.0
+	model?: string; // default: SDK default
 }
 
 export interface TokenUsage {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ClassifierSpec } from "../types";
 
 /** All scalar EvalConfig fields — shared by the TS and JSON config schemas. */
 const baseConfigShape = {
@@ -58,7 +59,30 @@ export type ScorerSpec =
 	  }
 	| { type: "all"; name?: string; of: ScorerSpec[] }
 	| { type: "any"; name?: string; of: ScorerSpec[] }
-	| { type: "script"; name: string; path: string };
+	| { type: "script"; name: string; path: string }
+	// spec: built-in classifier name (e.g. "InstructionFollowing") or an inline ClassifierSpec
+	| { type: "llm-classifier"; spec: string | ClassifierSpec };
+
+const classifierSpecSchema = z
+	.object({
+		name: z.string(),
+		instructions: z.string(),
+		choices: z
+			.array(
+				z
+					.object({
+						label: z.string(),
+						description: z.string(),
+						score: z.number(),
+					})
+					.strict(),
+			)
+			.nonempty(),
+		useCoT: z.boolean().optional(),
+		passThreshold: z.number().min(0).max(1).optional(),
+		model: z.string().optional(),
+	})
+	.strict();
 
 const scorerSpecSchema: z.ZodType<ScorerSpec> = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("build"), name: z.string().optional() }).strict(),
@@ -132,6 +156,14 @@ const scorerSpecSchema: z.ZodType<ScorerSpec> = z.discriminatedUnion("type", [
 		.strict(),
 	z
 		.object({ type: z.literal("script"), name: z.string(), path: z.string() })
+		.strict(),
+	z
+		.object({
+			type: z.literal("llm-classifier"),
+			// A built-in name resolves via BUILTINS; an object is validated in full
+			// by the LLMClassifierScorer constructor when compiled.
+			spec: z.union([z.string(), classifierSpecSchema]),
+		})
 		.strict(),
 ]);
 

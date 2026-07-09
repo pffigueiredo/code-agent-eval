@@ -170,6 +170,34 @@ export default async function evaluate(ctx) {
 }
 ```
 
+### LLM-as-judge
+
+For subjective criteria a command can't check (instruction-following, code quality, style), score with an **LLM judge**. Select a built-in by name:
+
+```json
+{ "type": "llm-classifier", "spec": "InstructionFollowing" }
+```
+
+Built-in names: `InstructionFollowing`, `CodeQuality`, `Security`. Or author a custom rubric inline:
+
+```json
+{
+  "type": "llm-classifier",
+  "spec": {
+    "name": "llm:added-tests",
+    "instructions": "Did the agent add meaningful test coverage?\nTask:\n{{prompt}}\nDiff:\n{{diff}}",
+    "choices": [
+      { "label": "A", "description": "Added tests that exercise the new behavior", "score": 1 },
+      { "label": "B", "description": "Added only trivial tests", "score": 0.5 },
+      { "label": "C", "description": "Added no tests", "score": 0 }
+    ],
+    "passThreshold": 0.5
+  }
+}
+```
+
+The judge picks exactly one label; its `score` becomes the scorer's score. `instructions` may reference `{{prompt}}`, `{{diff}}`, `{{finalText}}`, `{{agentOutput}}`. Needs `ANTHROPIC_API_KEY`. On an infra fault or unparseable verdict the scorer degrades to `score: 0` rather than throwing.
+
 ## Scorer interface
 
 The `ScorerContext` passed to every scorer:
@@ -180,6 +208,7 @@ interface ScorerContext {
   diff: string;              // full git diff
   agentOutput: string;       // raw agent messages (JSON)
   promptId: string;          // which prompt variant
+  prompt: string;            // the prompt text given to the agent
   execCommand: (opts: ExecCommandOptions) => Promise<ScorerResult>;
 }
 
@@ -195,6 +224,7 @@ interface ScorerResult {
   score: number;             // 0.0–1.0
   reason: string;
   metadata?: Record<string, unknown>;
+  passThreshold?: number;    // pass when score >= passThreshold (default 1.0)
 }
 ```
 
@@ -202,7 +232,7 @@ interface ScorerResult {
 
 When JSON scorers aren't enough, escalate:
 
-1. **JSON** (`type: build|test|lint|command|file|diff-contains|skill-picked-up|all|any`) — zero code
+1. **JSON** (`type: build|test|lint|command|file|diff-contains|skill-picked-up|llm-classifier|all|any`) — zero code
 2. **`script`** — a `.mjs` file with `export default async function evaluate(ctx)` — full JS, no build step
 3. **`.ts`/`.js` eval file** — `export default { ..., scorers: [new BuildSuccessScorer(), ...] }` — TypeScript, built-in classes
 4. **Programmatic API** — `import { runClaudeCodeEval } from 'code-agent-eval'` — full control
