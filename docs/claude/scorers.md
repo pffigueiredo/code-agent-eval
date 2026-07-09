@@ -92,3 +92,8 @@ Select a built-in by name (`InstructionFollowing`, `CodeQuality`, `Security`), o
 `instructions` is the QUESTION only; it may reference `{{prompt}}`, `{{diff}}`, `{{finalText}}`, `{{agentOutput}}`. The judge runs neutral and single-turn (regex fallback if structured output is unavailable), and degrades to `score: 0` on an infra fault or unparseable verdict rather than throwing. The chosen label + description land in `metadata`.
 
 **passThreshold** — a scorer passes when `score >= passThreshold` (default 1.0). Binary command scorers stay all-or-nothing; graded judges opt into a lower bar via `passThreshold` on the spec. This drives both the iteration's `success` and each scorer's `passRate`. `isScorePassing(result)` implements the decision.
+
+**Optional spec fields:**
+
+- `model` — override the judge model (e.g. `"claude-opus-4-8"`). Defaults to the SDK's default model.
+- `useCoT` — set `false` to drop the "reason step by step" nudge. Defaults to `true`.
