@@ -611,12 +611,13 @@ export function calculateAggregateScores(
 
 	// Calculate aggregates for each scorer
 	for (const scorerName of scorerNames) {
-		const scores = results
-			.map((r) => r.scores[scorerName]?.score)
-			.filter((s): s is number => s !== undefined);
+		const scorerResults = results
+			.map((r) => r.scores[scorerName])
+			.filter((s): s is ScorerResult => s?.score !== undefined);
 
-		if (scores.length === 0) continue;
+		if (scorerResults.length === 0) continue;
 
+		const scores = scorerResults.map((s) => s.score);
 		const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
 		const min = Math.min(...scores);
 		const max = Math.max(...scores);
@@ -624,9 +625,6 @@ export function calculateAggregateScores(
 			scores.reduce((acc, score) => acc + (score - mean) ** 2, 0) /
 			scores.length;
 		const stdDev = Math.sqrt(variance);
-		const scorerResults = results
-			.map((r) => r.scores[scorerName])
-			.filter((s): s is ScorerResult => s?.score !== undefined);
 		const passRate =
 			scorerResults.filter(isScorePassing).length / scorerResults.length;
 
