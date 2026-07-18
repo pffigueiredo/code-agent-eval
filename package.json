@@ -83,7 +83,7 @@
     "changelogen": "0.6.2",
     "knip": "6.26.0",
     "publint": "0.3.21",
-    "tsdown": "0.22.4",
+    "tsdown": "0.22.5",
     "typescript": "6.0.3",
     "vitest": "4.1.10"
   }
