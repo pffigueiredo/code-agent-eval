@@ -79,7 +79,7 @@
     "@biomejs/biome": "2.5.3",
     "@types/fs-extra": "11.0.4",
     "@types/node": "24.13.3",
-    "bumpp": "11.1.0",
+    "bumpp": "12.2.2",
     "changelogen": "0.6.2",
     "knip": "6.26.0",
     "publint": "0.3.21",
