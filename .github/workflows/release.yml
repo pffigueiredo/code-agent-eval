@@ -14,7 +14,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0 # need tags to detect whether this version is already released
 
@@ -49,7 +49,7 @@ jobs:
 
       - name: Set up pnpm
         if: steps.v.outputs.exists == 'false'
-        uses: pnpm/action-setup@v6.0.9
+        uses: pnpm/action-setup@v6.0.10
 
       - name: Set up Node
         if: steps.v.outputs.exists == 'false'
