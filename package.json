@@ -78,7 +78,7 @@
     "@arethetypeswrong/cli": "0.18.5",
     "@biomejs/biome": "2.5.3",
     "@types/fs-extra": "11.0.4",
-    "@types/node": "24.13.3",
+    "@types/node": "26.6.5",
     "bumpp": "11.1.0",
     "changelogen": "0.6.2",
     "knip": "6.26.0",
